@@ -19,14 +19,13 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 
-
 import sys
 
 from omero.cli import CLI
 from omero_rdf import HELP, RdfControl
 
 try:
-    register("rdf", RdfControl, HELP)
+    register("rdf", RdfControl, HELP)  # type: ignore
 except NameError:
     if __name__ == "__main__":
         cli = CLI()

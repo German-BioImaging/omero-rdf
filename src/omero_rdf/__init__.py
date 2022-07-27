@@ -19,36 +19,22 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 
-
-import sys
-
-import json
 import logging
-
 from functools import wraps
 
-from omero.cli import BaseControl, Parser
-from omero.cli import ProxyStringType
+from omero.cli import BaseControl, Parser, ProxyStringType
 from omero.gateway import BlitzGateway
-from omero.model import Image
-from omero.model import Plate
-from omero.model import Screen
-from omero.model import Dataset
-from omero.model import Project
-from omero.model import StatsInfoI
-
+from omero.model import Dataset, Image, Plate, Project, Screen
 from omero_marshal import get_encoder
-
 from rdflib import BNode, Literal, URIRef
 
-
-HELP = ("""A plugin for exporting rdf from OMERO
+HELP = """A plugin for exporting rdf from OMERO
 
 Examples:
 
     omero rdf Image:123
 
-""")
+"""
 
 
 def gateway_required(func):
@@ -59,6 +45,7 @@ def gateway_required(func):
 
     FIXME: copied from omero-cli-render. move upstream
     """
+
     @wraps(func)
     def _wrapper(self, *args, **kwargs):
         self.client = self.ctx.conn(*args)
@@ -71,11 +58,11 @@ def gateway_required(func):
                 self.gateway.close(hard=False)
                 self.gateway = None
                 self.client = None
+
     return _wrapper
 
 
 class RdfControl(BaseControl):
-
     def _configure(self, parser: Parser) -> None:
         parser.add_login_arguments()
         parser.add_argument(
@@ -93,34 +80,34 @@ class RdfControl(BaseControl):
             help="Actually do something. Default: false.",
         )
         rdf_type = ProxyStringType("Image")
-        rdf_help = ("Object to be exported to RDF")
-        parser.add_argument("object", type=rdf_type, help=rdf_help)
+        rdf_help = "Object to be exported to RDF"
+        parser.add_argument("target", type=rdf_type, help=rdf_help)
         parser.set_defaults(func=self.action)
 
     @gateway_required
     def action(self, args):
-        for ignore in self.descend(self.gateway, args.object, batch=1):
+        for ignore in self.descend(self.gateway, args.target, batch=1):
             pass
 
-    def descend(self, gateway, object, batch=100, handler=None):
+    def descend(self, gateway, target, batch=100, handler=None):
         """
         Copied from omero-cli-render. Should be moved upstream
         """
 
         handler = Handler(gateway)
 
-        if isinstance(object, list):
-            for x in object:
+        if isinstance(target, list):
+            for x in target:
                 for rv in self.descend(gateway, x, batch):
                     yield rv
-        elif isinstance(object, Screen):
-            scr = self._lookup(gateway, "Screen", object.id)
+        elif isinstance(target, Screen):
+            scr = self._lookup(gateway, "Screen", target.id)
             handler(scr)
             for plate in scr.listChildren():
                 for rv in self.descend(gateway, plate._obj, batch):
                     yield rv
-        elif isinstance(object, Plate):
-            plt = self._lookup(gateway, "Plate", object.id)
+        elif isinstance(target, Plate):
+            plt = self._lookup(gateway, "Plate", target.id)
             handler(plt)
             rv = []
             for well in plt.listChildren():
@@ -139,15 +126,15 @@ class RdfControl(BaseControl):
             if rv:
                 yield rv
 
-        elif isinstance(object, Project):
-            prj = self._lookup(gateway, "Project", object.id)
+        elif isinstance(target, Project):
+            prj = self._lookup(gateway, "Project", target.id)
             handler(prj)
             for ds in prj.listChildren():
                 for rv in self.descend(gateway, ds._obj, batch):
                     yield rv
 
-        elif isinstance(object, Dataset):
-            ds = self._lookup(gateway, "Dataset", object.id)
+        elif isinstance(target, Dataset):
+            ds = self._lookup(gateway, "Dataset", target.id)
             handler(ds)
             rv = []
             for img in ds.listChildren():
@@ -164,8 +151,8 @@ class RdfControl(BaseControl):
             if rv:
                 yield rv
 
-        elif isinstance(object, Image):
-            img = self._lookup(gateway, "Image", object.id)
+        elif isinstance(target, Image):
+            img = self._lookup(gateway, "Image", target.id)
             handler(img.getPrimaryPixels())
             handler(img)
             if batch == 1:
@@ -173,14 +160,14 @@ class RdfControl(BaseControl):
             else:
                 yield [img]
         else:
-            self.ctx.die(111, "TBD: %s" % object.__class__.__name__)
+            self.ctx.die(111, "TBD: %s" % target.__class__.__name__)
 
-    def _lookup(self, gateway, type, oid):
+    def _lookup(self, gateway, _type, oid):
         # TODO: move _lookup to a _configure type
-        gateway.SERVICE_OPTS.setOmeroGroup('-1')
-        obj = gateway.getObject(type, oid)
+        gateway.SERVICE_OPTS.setOmeroGroup("-1")
+        obj = gateway.getObject(_type, oid)
         if not obj:
-            self.ctx.die(110, "No such %s: %s" % (type, oid))
+            self.ctx.die(110, f"No such {_type}: {oid}")
         return obj
 
 
@@ -201,7 +188,7 @@ class Handler:
     def get_identity(self, _type, _id):
         if _type.endswith("I"):
             _type = _type[0:-1]
-        return URIRef(f'https://{self.info.host}/{_type}/{_id}')
+        return URIRef(f"https://{self.info.host}/{_type}/{_id}")
 
     def get_bnode(self):
         try:
@@ -284,13 +271,10 @@ class Handler:
                         bnode = self.get_bnode()
                         # TODO: KVPs need ordering info
                         yield (_id, URIRef(f"{self.OME}Map"), bnode)
-                        yield (bnode, URIRef(f"{self.OME}Key"),
-                               self.ellide(item[0]))
-                        yield (bnode, URIRef(f"{self.OME}Value"),
-                               self.ellide(item[1]))
+                        yield (bnode, URIRef(f"{self.OME}Key"), self.ellide(item[0]))
+                        yield (bnode, URIRef(f"{self.OME}Value"), self.ellide(item[1]))
                 else:
                     yield (_id, key, self.ellide(v))  # TODO: Use Literal
-
 
         # Special handling for Annotations
         annotations = data.get("Annotations", None)

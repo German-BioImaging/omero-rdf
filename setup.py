@@ -17,7 +17,6 @@
 #
 #
 import os
-import sys
 
 from setuptools import setup
 
@@ -30,43 +29,36 @@ def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 
-version = '0.1.0.dev0'
-url = 'https://github.com/ome/omero-rdf'
+version = "0.1.0.dev0"
+url = "https://github.com/ome/omero-rdf"
 
 setup(
     version=version,
-    packages=['omero_rdf', 'omero.plugins'],
+    packages=["omero_rdf", "omero.plugins"],
     package_dir={"": "src"},
-    name='omero-rdf',
-    description='A plugin for exporting rdf from OMERO',
-    long_description=read('README.rst'),
+    name="omero-rdf",
+    description="A plugin for exporting rdf from OMERO",
+    long_description=read("README.rst"),
     classifiers=[
-        'Development Status :: 2 - Pre-Alpha',
-        'Environment :: Plugins',
-        'Intended Audience :: Developers',
-        'Intended Audience :: End Users/Desktop',
-        'License :: OSI Approved :: GNU General Public License v2 '
-        'or later (GPLv2+)',
-        'Natural Language :: English',
-        'Operating System :: OS Independent',
-        'Programming Language :: Python :: 3',
-        'Topic :: Software Development :: Libraries :: Python Modules',
+        "Development Status :: 2 - Pre-Alpha",
+        "Environment :: Plugins",
+        "Intended Audience :: Developers",
+        "Intended Audience :: End Users/Desktop",
+        "License :: OSI Approved :: GNU General Public License v2 " "or later (GPLv2+)",
+        "Natural Language :: English",
+        "Operating System :: OS Independent",
+        "Programming Language :: Python :: 3",
+        "Topic :: Software Development :: Libraries :: Python Modules",
     ],  # Get strings from
-        # http://pypi.python.org/pypi?%3Aaction=list_classifiers
-    author='OME Team',
-    author_email='ome-team@openmicroscopy.org',
-    license='GPL-2.0+',
-    url='%s' % url,
+    # http://pypi.python.org/pypi?%3Aaction=list_classifiers
+    author="OME Team",
+    author_email="ome-team@openmicroscopy.org",
+    license="GPL-2.0+",
+    url="%s" % url,
     zip_safe=False,
-    download_url='%s/v%s.tar.gz' % (url, version),
-    install_requires=[
-        'omero-py>=5.8',
-        'future'
-    ],
-    python_requires='>=3',
-    keywords=['OMERO.CLI', 'plugin'],
-    tests_require=[
-        'pytest',
-        'restview',
-        'mox3'],
+    download_url=f"{url}/v{version}.tar.gz",
+    install_requires=["omero-py>=5.8", "future"],
+    python_requires=">=3",
+    keywords=["OMERO.CLI", "plugin"],
+    tests_require=["pytest", "restview", "mox3"],
 )

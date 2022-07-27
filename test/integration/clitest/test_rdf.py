@@ -19,17 +19,13 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 
-
-import omero
-import pytest
 from omero.testlib.cli import CLITest
-from omero.plugins.rdfimport RdfControl
+from omero_rdf import RdfControl
 
 
 class TestRdf(CLITest):
-
     def setup_method(self, method):
-        super(TestRdf, self).setup_method(method)
+        super().setup_method(method)
         self.cli.register("rdf", RdfControl, "TEST")
         self.args += ["rdf"]
 
@@ -37,9 +33,11 @@ class TestRdf(CLITest):
         self.cli.invoke(self.args, strict=True)
         return capfd.readouterr()[0]
 
-    def test_rdf(self):
+    def test_rdf(self, capfd):
         name = self.uuid()
-        oid = self.create_object("Project", name="my test")
-        obj_arg = '%s%s:%s' % (object_type, model, oid)
+        object_type = "Project"
+        oid = self.create_object(object_type, name=f"{name}")
+        obj_arg = f"{object_type}:{oid}"
         self.args += [obj_arg]
         out = self.rdf(capfd)
+        assert out
