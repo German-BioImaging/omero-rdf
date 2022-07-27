@@ -1,0 +1,10 @@
+build
+dist
+omero-rdf-*
+*.egg*
+.cache
+*.DS_Store
+.*un~
+*.pyc
+.omero
+.*.swp
