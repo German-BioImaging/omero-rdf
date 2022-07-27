@@ -164,6 +164,16 @@ class Handler:
 
         _type = self.get_type(data)
 
+        # Temporary workaround while deciding how to pass annotations
+        if "Annotation" in str(_type):
+            for ah in self.annotation_handlers:
+                handled = yield from ah(
+                    None,
+                    None,
+                    data,
+                )
+        # End workaround
+
         if not _id:
             str_id = data.get("@id")
             if not str_id:

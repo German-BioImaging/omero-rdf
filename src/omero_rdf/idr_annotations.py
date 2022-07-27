@@ -43,26 +43,35 @@ class IDRAnnotationHandler:
         self.wikidata: Dict[Any, URIRef] = {}
 
     def __call__(
-        self, _id: URIRef, pred: URIRef, data: Data
+        self, container: URIRef, pred: URIRef, data: Data
     ) -> Generator[Triple, None, bool]:
 
-        # TODO
-        # ns = data.get("Namespace")
-        # if ns not in ("openmicroscopy.org/omero/bulk_annotations"):
-        #     return False
+        ns = data.get("Namespace")
+        print(f"# handling {ns}")
 
-        for k, v in sorted(data.items()):
+        _type = data.get("@type")
+        _id = data.get("@id")
 
-            key = self.handler.get_key(k)
-            if not key:
-                continue
+        # Workaround matched with change in the main handler
+        if _type is None or "MapAnnotation" not in _type:
+            print(f"# skipping non-map: {_type}")
+            return False
+        # End workaround
 
+        if _id is None:
             thing = BNode()
-            yield (_id, WDP.P180, thing)  # P180 = depict
-            yield (thing, RDF.type, WD.Q35120)  # Q35120 = THING
+        else:
+            thing = self.handler.get_identity("MapAnnotation", data.get("@id"))
 
-            name = str(data["Name"])
-            value = data["Value"]
+        if container is not None:
+            yield (_id, WDP.P180, thing)  # P180 = depict
+
+        yield (thing, RDF.type, WD.Q35120)  # Q35120 = THING
+
+        kvps = data.get("Value", [])
+
+        for name, value in kvps:
+
             cached = self.wikidata.get(value)
 
             if name == "Organism":
