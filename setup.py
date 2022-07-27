@@ -57,8 +57,13 @@ setup(
     url="%s" % url,
     zip_safe=False,
     download_url=f"{url}/v{version}.tar.gz",
-    install_requires=["omero-py>=5.8", "future"],
+    install_requires=["omero-py>=5.8", "entrypoints", "future", "rdflib"],
     python_requires=">=3",
     keywords=["OMERO.CLI", "plugin"],
     tests_require=["pytest", "restview", "mox3"],
+    entry_points={
+        "omero_rdf.annotation_handler": [
+            "idr_annotations = omero_rdf.idr_annotations:IDRAnnotationHandler"
+        ]
+    },
 )

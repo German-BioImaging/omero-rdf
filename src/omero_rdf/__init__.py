@@ -22,21 +22,27 @@
 import logging
 from argparse import Namespace
 from functools import wraps
-from typing import Any, Callable, Dict, Generator, Optional, Set, Tuple, Union
+from typing import Any, Callable, Dict, Generator, List, Optional, Set, Tuple, Union
 
+import entrypoints
 from omero.cli import BaseControl, Parser, ProxyStringType
-from omero.gateway import BlitzGateway, BlitzObject
-from omero.model import Dataset, Image, Object, Plate, Project, Screen
+from omero.gateway import BlitzGateway, BlitzObjectWrapper
+from omero.model import Dataset, Image, IObject, Plate, Project, Screen
 from omero_marshal import get_encoder
 from rdflib import BNode, Literal, URIRef
 
 HELP = """A plugin for exporting rdf from OMERO
+
+omero-rdf creates a stream of RDF triples from the starting object that
+it is given. This may be one of: Image, Dataset, Project, Plate, and Screen.
 
 Examples:
 
     omero rdf Image:123
 
 """
+
+# TYPE DEFINITIONS
 
 Data = Dict[str, Any]
 Subj = Union[BNode, URIRef]
@@ -70,6 +76,13 @@ def gateway_required(func: Callable) -> Callable:  # type: ignore
 
 
 class Handler:
+    """
+    Instances are used to generate triples.
+
+    Methods which can be subclassed:
+        TBD
+
+    """
 
     OME = "http://www.openmicroscopy.org/rdf/2016-06/ome_core/"
     OMERO = "http://www.openmicroscopy.org/TBD/omero/"
@@ -78,6 +91,14 @@ class Handler:
         self.gateway = gateway
         self.cache: Set[URIRef] = set()
         self.bnode = 0
+        self.annotation_handlers: List[
+            Callable[[URIRef, URIRef, Data], Generator[Triple, None, bool]]
+        ] = []
+        for ep in entrypoints.get_group_all("omero_rdf.annotation_handler"):
+            ah_loader = ep.load()
+            self.annotation_handlers.append(ah_loader(self))
+        # We know there are some built in handlers
+        assert len(self.annotation_handlers) >= 1
 
         # Attempt to auto-detect server
         comm = self.gateway.c.getCommunicator()
@@ -95,6 +116,16 @@ class Handler:
         finally:
             self.bnode += 1
 
+    def get_key(self, key: str) -> Optional[URIRef]:
+        if key in ("@type", "@id", "omero:details", "Annotations"):
+            # Types that we want to omit fo
+            return None
+        else:
+            if key.startswith("omero:"):
+                return URIRef(f"{self.OMERO}{key[6:]}")
+            else:
+                return URIRef(f"{self.OME}{key}")
+
     def get_type(self, data: Data) -> str:
         return data.get("@type", "UNKNOWN").split("#")[-1]
 
@@ -105,7 +136,7 @@ class Handler:
                 v = f"{v[0:24]}...{v[-20:-1]}"
         return Literal(v)
 
-    def __call__(self, o: BlitzObject) -> None:
+    def __call__(self, o: BlitzObjectWrapper) -> None:
         c = o._obj.__class__
         encoder = get_encoder(c)
         if encoder is None:
@@ -122,7 +153,10 @@ class Handler:
         for output in self.rdf(data):
             if output:
                 s, p, o = output
-                print(f"""{s.n3():50}\t{p.n3():60}\t{o.n3()} .""")
+                if None in (s, p, o):
+                    print(f""" skipping None value: {s} {p} {o}""")
+                else:
+                    print(f"""{s.n3():50}\t{p.n3():60}\t{o.n3()} .""")
 
     def rdf(
         self, data: Data, _id: Optional[Subj] = None
@@ -180,9 +214,18 @@ class Handler:
                     yield (_id, key, self.ellide(v))  # TODO: Use Literal
 
         # Special handling for Annotations
-        annotations = data.get("Annotations", None)
-        if annotations:
-            for annotation in annotations:
+        annotations = data.get("Annotations", [])
+        for annotation in annotations:
+
+            handled = False
+            for ah in self.annotation_handlers:
+                handled = yield from ah(
+                    _id, URIRef(f"{self.OME}annotation"), annotation
+                )
+                if handled:
+                    break
+
+            if not handled:  # TODO: could move to a default handler
                 yield (
                     _id,
                     URIRef(f"{self.OME}annotation"),
@@ -220,7 +263,7 @@ class RdfControl(BaseControl):
     def descend(
         self,
         gateway: BlitzGateway,
-        target: Object,
+        target: IObject,
         batch: int = 100,
         handler: Optional[Handler] = None,
     ) -> None:
@@ -239,9 +282,13 @@ class RdfControl(BaseControl):
             handler(scr)
             for plate in scr.listChildren():
                 self.descend(gateway, plate._obj, batch)
+            for annotation in scr.listAnnotations(None):
+                handler(annotation)
         elif isinstance(target, Plate):
             plt = self._lookup(gateway, "Plate", target.id)
             handler(plt)
+            for annotation in plt.listAnnotations(None):
+                handler(annotation)
             for well in plt.listChildren():
                 handler(well)  # No descend
                 for idx in range(0, well.countWellSample()):
@@ -252,26 +299,35 @@ class RdfControl(BaseControl):
         elif isinstance(target, Project):
             prj = self._lookup(gateway, "Project", target.id)
             handler(prj)
+            for annotation in prj.listAnnotations(None):
+                handler(annotation)
             for ds in prj.listChildren():
                 self.descend(gateway, ds._obj, batch)
 
         elif isinstance(target, Dataset):
             ds = self._lookup(gateway, "Dataset", target.id)
             handler(ds)
+            for annotation in ds.listAnnotations(None):
+                handler(annotation)
             for img in ds.listChildren():
-                handler(list(img.listAnnotations(None))[0])
-                handler(img.getPrimaryPixels())
                 handler(img)  # No descend
+                handler(img.getPrimaryPixels())
+                for annotation in img.listAnnotations(None):
+                    handler(annotation)
 
         elif isinstance(target, Image):
             img = self._lookup(gateway, "Image", target.id)
-            handler(img.getPrimaryPixels())
             handler(img)
+            handler(img.getPrimaryPixels())
+            for annotation in img.listAnnotations(None):
+                handler(annotation)
 
         else:
             self.ctx.die(111, "TBD: %s" % target.__class__.__name__)
 
-    def _lookup(self, gateway: BlitzGateway, _type: str, oid: int) -> BlitzObject:
+    def _lookup(
+        self, gateway: BlitzGateway, _type: str, oid: int
+    ) -> BlitzObjectWrapper:
         # TODO: move _lookup to a _configure type
         gateway.SERVICE_OPTS.setOmeroGroup("-1")
         obj = gateway.getObject(_type, oid)
