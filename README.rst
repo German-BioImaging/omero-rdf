@@ -46,6 +46,11 @@ specifying ``major``, ``minor`` or ``patch`` depending on whether the developmen
 
 Remember to ``git push`` all commits and tags.
 
+Funding
+-------
+
+Funded by the [Delta Tissue](https://wellcomeleap.org/delta-tissue/) Program of [Wellcome Leap](https://wellcomeleap.org/).
+
 License
 -------
 
