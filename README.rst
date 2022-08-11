@@ -49,7 +49,8 @@ Remember to ``git push`` all commits and tags.
 Funding
 -------
 
-Funded by the [Delta Tissue](https://wellcomeleap.org/delta-tissue/) Program of [Wellcome Leap](https://wellcomeleap.org/).
+Funded by the `Delta Tissue <https://wellcomeleap.org/delta-tissue/`
+Program of `Wellcome Leap <https://wellcomeleap.org/>`.
 
 License
 -------
@@ -60,4 +61,4 @@ licensed under the terms of the GNU General Public License (GPL) v2 or later.
 Copyright
 ---------
 
-2017-2020, The Open Microscopy Environment
+2022, German BioImaging

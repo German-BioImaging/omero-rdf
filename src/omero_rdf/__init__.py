@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 #
-# Copyright (c) 2022 University of Dundee.
+# Copyright (c) 2022 German BioImaging
 # All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify
