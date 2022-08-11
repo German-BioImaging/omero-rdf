@@ -1,5 +1,5 @@
-.. image:: https://github.com/ome/omero-rdf/workflows/OMERO/badge.svg
-    :target: https://github.com/ome/omero-rdf
+.. image:: https://github.com/german-bioimaging/omero-rdf/workflows/OMERO/badge.svg
+    :target: https://github.com/german-bioimaging/omero-rdf
 
 .. image:: https://badge.fury.io/py/omero-rdf.svg
     :target: https://badge.fury.io/py/omero-rdf
@@ -31,8 +31,8 @@ Install the command-line tool using `pip <https://pip.pypa.io/en/stable/>`_:
 Release process
 ---------------
 
-This repository uses `bump2version <https://pypi.org/project/bump2version/>`_ to manage version numbers.
-To tag a release run::
+This repository uses `bump2version <https://pypi.org/project/bump2version/>`_
+to manage version numbers. To tag a release run::
 
     $ bumpversion release
 
@@ -42,15 +42,17 @@ To switch back to a development version run::
 
     $ bumpversion --no-tag [major|minor|patch]
 
-specifying ``major``, ``minor`` or ``patch`` depending on whether the development branch will be a `major, minor or patch release <https://semver.org/>`_. This will also add the ``.dev0`` suffix.
+specifying ``major``, ``minor`` or ``patch`` depending on whether the
+development branch will be a `major, minor or patch release
+<https://semver.org/>`_. This will also add the ``.dev0`` suffix.
 
 Remember to ``git push`` all commits and tags.
 
 Funding
 -------
 
-Funded by the `Delta Tissue <https://wellcomeleap.org/delta-tissue/`
-Program of `Wellcome Leap <https://wellcomeleap.org/>`.
+Funded by the `Delta Tissue <https://wellcomeleap.org/delta-tissue/`_
+Program of `Wellcome Leap <https://wellcomeleap.org/>`_.
 
 License
 -------
