@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright (c) 2022 University of Dundee.
+# Copyright (c) 2022 German BioImaging
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -30,7 +30,7 @@ def read(fname):
 
 
 version = "0.1.0.dev0"
-url = "https://github.com/ome/omero-rdf"
+url = "https://github.com/german-bioimaging/omero-rdf"
 
 setup(
     version=version,
