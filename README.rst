@@ -51,7 +51,7 @@ Remember to ``git push`` all commits and tags.
 Funding
 -------
 
-Funded by the `Delta Tissue <https://wellcomeleap.org/delta-tissue/`_
+Funded by the `Delta Tissue <https://wellcomeleap.org/delta-tissue/>`_
 Program of `Wellcome Leap <https://wellcomeleap.org/>`_.
 
 License
