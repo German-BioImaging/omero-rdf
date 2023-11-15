@@ -64,7 +64,7 @@ class IDRAnnotationHandler:
             thing = self.handler.get_identity("MapAnnotation", data.get("@id"))
 
         if container is not None:
-            yield (_id, WDP.P180, thing)  # P180 = depict
+            yield (container, WDP.P180, thing)  # Container depicts thing described in annotation
 
         yield (thing, RDF.type, WD.Q35120)  # Q35120 = THING
 
