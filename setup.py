@@ -17,8 +17,8 @@
 #
 #
 import os
-import versioneer
 
+import versioneer
 from setuptools import setup
 
 
@@ -29,7 +29,8 @@ def read(fname):
     """
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
-version = version=versioneer.get_version()
+
+version = version = versioneer.get_version()
 url = "https://github.com/german-bioimaging/omero-rdf"
 
 setup(
@@ -58,7 +59,15 @@ setup(
     url="%s" % url,
     zip_safe=False,
     download_url=f"{url}/v{version}.tar.gz",
-    install_requires=["omero-py>=5.8", "entrypoints", "future", "rdflib", "versioneer"],
+    install_requires=[
+        "omero-py>=5.8",
+        "entrypoints",
+        "future",
+        "rdflib",
+        "versioneer",
+        "omero-marshal",
+        "wikidataintegrator",
+    ],
     python_requires=">=3",
     keywords=["OMERO.CLI", "plugin"],
     tests_require=["pytest", "restview", "mox3"],
