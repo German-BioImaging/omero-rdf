@@ -344,3 +344,6 @@ class RdfControl(BaseControl):
         if not obj:
             self.ctx.die(110, f"No such {_type}: {oid}")
         return obj
+
+from . import _version
+__version__ = _version.get_versions()['version']
