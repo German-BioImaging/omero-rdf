@@ -1,0 +1,71 @@
+[build-system]
+requires = [
+    "setuptools>=60",
+    "setuptools-scm>=8.0",
+]
+
+[tools.setuptools.dynamic]
+version = {attr = "omero_rdf.__version__"}
+
+[project]
+name = "omero-rdf"
+readme = "README.rst"
+dynamic = ["version"]
+description="A plugin for exporting rdf from OMERO"
+
+requires-python = ">3.8"
+
+dependencies = [
+    "omero-py>=5.8",
+    "entrypoints",
+    "types-entrypoints",
+    "future",
+    "rdflib",
+    "omero-marshal",
+    "wikidataintegrator",
+]
+
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Environment :: Plugins",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+keywords = [
+    "OMERO.cli", "plugin",
+]
+
+authors = [
+    {name = "The Open Microscopy Team"},
+]
+
+[project.optional-dependencies]
+tests = [
+    "pytest",
+    "restview",
+    "mox3",
+]
+
+[project.urls]
+Repository = "https://github.com/German-BioImaging/omero-rdf"
+Changelog = "https://github.com/German-BioImaging/omero-rdf/blob/master/CHANGES.txt"
+
+[project.entry-points."omero_rdf.annotation_handler"]
+idr_annotations = "omero_rdf.idr_annotations:IDRAnnotationHandler"
+
+[tool.setuptools]
+package-dir = {""= "src"}
+
+[tools.mypy]
+check_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+disallow_any_generics = false
+ignore_missing_imports = true

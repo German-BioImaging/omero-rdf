@@ -31,10 +31,6 @@ from omero.model import Dataset, Image, IObject, Plate, Project, Screen
 from omero_marshal import get_encoder
 from rdflib import BNode, Literal, URIRef
 
-from . import _version
-
-__version__ = _version.get_versions()["version"]
-
 HELP = """A plugin for exporting rdf from OMERO
 
 omero-rdf creates a stream of RDF triples from the starting object that
