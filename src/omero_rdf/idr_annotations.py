@@ -18,6 +18,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
+import logging
 from typing import Any, Dict, Generator
 
 from rdflib import BNode, Literal, Namespace, URIRef
@@ -47,14 +48,14 @@ class IDRAnnotationHandler:
     ) -> Generator[Triple, None, bool]:
 
         ns = data.get("Namespace")
-        print(f"# handling {ns}")
+        logging.debug("# handling %s", ns)
 
         _type = data.get("@type")
         _id = data.get("@id")
 
         # Workaround matched with change in the main handler
         if _type is None or "MapAnnotation" not in _type:
-            print(f"# skipping non-map: {_type}")
+            logging.debug("# skipping non-map: %s", _type)
             return False
         # End workaround
 
@@ -64,7 +65,11 @@ class IDRAnnotationHandler:
             thing = self.handler.get_identity("MapAnnotation", data.get("@id"))
 
         if container is not None:
-            yield (container, WDP.P180, thing)  # Container depicts thing described in annotation
+            yield (
+                container,
+                WDP.P180,
+                thing,
+            )  # Container depicts thing described in annotation
 
         yield (thing, RDF.type, WD.Q35120)  # Q35120 = THING
 
@@ -90,7 +95,7 @@ class IDRAnnotationHandler:
                         )
                         self.wikidata[value] = cached
                     else:
-                        print(f"# missing {value} in wikidata")
+                        logging.warning("# missing %s in wikidata", value)
                     yield (thing, WDP.P703, cached)
 
             elif name == "Pathology Identifier":
@@ -152,7 +157,7 @@ class IDRAnnotationHandler:
                         )
                         self.wikidata[value] = cached
                     else:
-                        print(f"missing {value} in wikidata")
+                        logging.warning("missing %s in wikidata", value)
                     yield (thing, WDP.P827, cached)  # FIXIE P1080?
 
             elif name == "Organism Part Identifier":
@@ -193,7 +198,7 @@ class IDRAnnotationHandler:
                         )
                         self.wikidata[value] = cached
                     else:
-                        print(f"missing {value} in wikidata")
+                        logging.warning("missing %s in wikidata", value)
                     yield (thing, WDP.P827, cached)
 
             elif name == "Sex":
@@ -202,7 +207,7 @@ class IDRAnnotationHandler:
                 elif value == "Male":
                     yield (thing, WDP.P21, WD.Q6581097)
                 else:
-                    print(f"unmapped sex value: {value}")
+                    logging.warning("unmapped sex value: %s", value)
 
             elif name == "Age":
                 yield (thing, WDP.P3629, Literal(value))
@@ -217,6 +222,6 @@ class IDRAnnotationHandler:
                 yield (thing, DC.identifier, URIRef(value))
 
             else:
-                print(f"# unknown key: {name}")
+                logging.warning("# unknown key: %s", name)
 
         return True

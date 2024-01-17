@@ -31,6 +31,10 @@ from omero.model import Dataset, Image, IObject, Plate, Project, Screen
 from omero_marshal import get_encoder
 from rdflib import BNode, Literal, URIRef
 
+from . import _version
+
+__version__ = _version.get_versions()["version"]
+
 HELP = """A plugin for exporting rdf from OMERO
 
 omero-rdf creates a stream of RDF triples from the starting object that
@@ -154,9 +158,9 @@ class Handler:
             if output:
                 s, p, o = output
                 if None in (s, p, o):
-                    print(f""" skipping None value: {s} {p} {o}""")
+                    logging.debug("skipping None value: %s %s %s", s, p, o)
                 else:
-                    print(f"""{s.n3():50}\t{p.n3():60}\t{o.n3()} .""")
+                    print(f"""{s.n3()}\t{p.n3()}\t{o.n3()} .""")
 
     def rdf(
         self, data: Data, _id: Optional[Subj] = None
@@ -180,7 +184,7 @@ class Handler:
                 raise Exception(f"missing id: {data}")
             _id = self.get_identity(_type, str_id)
             if _id in self.cache:
-                logging.debug(f"# skipping previously seen {_id}")
+                logging.debug("# skipping previously seen %s", _id)
                 return
             else:
                 self.cache.add(_id)
@@ -344,6 +348,3 @@ class RdfControl(BaseControl):
         if not obj:
             self.ctx.die(110, f"No such {_type}: {oid}")
         return obj
-
-from . import _version
-__version__ = _version.get_versions()['version']
