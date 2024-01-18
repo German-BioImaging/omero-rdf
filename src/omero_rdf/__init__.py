@@ -27,7 +27,7 @@ from typing import Any, Callable, Dict, Generator, List, Optional, Set, Tuple, U
 import entrypoints
 from omero.cli import BaseControl, Parser, ProxyStringType
 from omero.gateway import BlitzGateway, BlitzObjectWrapper
-from omero.model import Dataset, Image, IObject, Plate, Project, Screen
+from omero.model import Dataset, Image, IObject, Plate, Project, Roi, Screen
 from omero_marshal import get_encoder
 from rdflib import BNode, Literal, URIRef
 
@@ -105,7 +105,7 @@ class Handler:
         self.info = self.gateway.c.getRouter(comm).ice_getEndpoints()[0].getInfo()
 
     def get_identity(self, _type: str, _id: Any) -> URIRef:
-        if _type.endswith("I"):
+        if _type.endswith("I") and _type != ("ROI"):
             _type = _type[0:-1]
         return URIRef(f"https://{self.info.host}/{_type}/{_id}")
 
@@ -200,11 +200,7 @@ class Handler:
                 if isinstance(v, dict):
                     # This is an object
                     if "@id" in v:
-                        # With an identity, use a reference
-                        v_type = self.get_type(v)
-                        val = self.get_identity(v_type, v["@id"])
-                        yield (_id, key, val)
-                        yield from self.rdf(v)
+                        yield from self.yield_object_with_id(_id, key, v)
                     else:
                         # Without an identity, use a bnode
                         # TODO: store by value for re-use?
@@ -214,12 +210,26 @@ class Handler:
 
                 elif isinstance(v, list):
                     # This is likely the [[key, value], ...] structure?
+                    # can also be shapes
                     for item in v:
-                        bnode = self.get_bnode()
-                        # TODO: KVPs need ordering info
-                        yield (_id, URIRef(f"{self.OME}Map"), bnode)
-                        yield (bnode, URIRef(f"{self.OME}Key"), self.ellide(item[0]))
-                        yield (bnode, URIRef(f"{self.OME}Value"), self.ellide(item[1]))
+                        if isinstance(item, dict) and "@id" in item:
+                            yield from self.yield_object_with_id(_id, key, item)
+                        elif isinstance(item, list) and len(item) == 2:
+                            bnode = self.get_bnode()
+                            # TODO: KVPs need ordering info, also no use of "key" here.
+                            yield (_id, URIRef(f"{self.OME}Map"), bnode)
+                            yield (
+                                bnode,
+                                URIRef(f"{self.OME}Key"),
+                                self.ellide(item[0]),
+                            )
+                            yield (
+                                bnode,
+                                URIRef(f"{self.OME}Value"),
+                                self.ellide(item[1]),
+                            )
+                        else:
+                            raise Exception(f"unknown list item: {item}")
                 else:
                     yield (_id, key, self.ellide(v))  # TODO: Use Literal
 
@@ -242,6 +252,15 @@ class Handler:
                     self.get_identity("AnnotationTBD", annotation["@id"]),
                 )
                 yield from self.rdf(annotation)
+
+    def yield_object_with_id(self, _id, key, v):
+        """
+        Yields a link to the object as well as its representation.
+        """
+        v_type = self.get_type(v)
+        val = self.get_identity(v_type, v["@id"])
+        yield (_id, key, val)
+        yield from self.rdf(v)
 
 
 class RdfControl(BaseControl):
@@ -330,6 +349,14 @@ class RdfControl(BaseControl):
             handler(img)
             handler(img.getPrimaryPixels())
             for annotation in img.listAnnotations(None):
+                handler(annotation)
+            for roi in img.getROIs():
+                handler(roi)
+
+        elif isinstance(target, Roi):
+            roi = self._lookup(gateway, "Roi", target.id)
+            handler(roi)
+            for annotation in roi.listAnnotations(None):
                 handler(annotation)
 
         else:
