@@ -370,8 +370,7 @@ class RdfControl(BaseControl):
                     join fetch s.annotationLinks as sal
                     join fetch sal.child as sann"""
             for roi in gateway.getQueryService().findAllByQuery(
-                query,
-                params,
+                query, params, {"omero.group": str(img.details.group.id.val)}
             ):
                 handler(roi)
 
