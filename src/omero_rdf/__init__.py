@@ -28,6 +28,7 @@ import entrypoints
 from omero.cli import BaseControl, Parser, ProxyStringType
 from omero.gateway import BlitzGateway, BlitzObjectWrapper
 from omero.model import Dataset, Image, IObject, Plate, Project, Roi, Screen
+from omero.sys import ParametersI
 from omero_marshal import get_encoder
 from rdflib import BNode, Literal, URIRef
 
@@ -136,8 +137,15 @@ class Handler:
                 v = f"{v[0:24]}...{v[-20:-1]}"
         return Literal(v)
 
+    def get_class(self, o):
+        if isinstance(o, IObject):
+            c = o.__class__
+        else:  # Wrapper
+            c = o._obj.__class__
+        return c
+
     def __call__(self, o: BlitzObjectWrapper) -> None:
-        c = o._obj.__class__
+        c = self.get_class(o)
         encoder = get_encoder(c)
         if encoder is None:
             raise Exception(f"unknown: {c}")
@@ -349,8 +357,21 @@ class RdfControl(BaseControl):
             handler(img)
             handler(img.getPrimaryPixels())
             for annotation in img.listAnnotations(None):
+                img._loadAnnotationLinks()
                 handler(annotation)
-            for roi in img.getROIs():
+
+            params = ParametersI()
+            params.addId(img.id)
+            query = """select r from Roi r
+                    join fetch r.annotationLinks as ral
+                    join fetch ral.child as rann
+                    join fetch r.shapes as s
+                    join fetch s.annotationLinks as sal
+                    join fetch sal.child as sann"""
+            for roi in gateway.getQueryService().findAllByQuery(
+                query,
+                params,
+            ):
                 handler(roi)
 
         elif isinstance(target, Roi):
