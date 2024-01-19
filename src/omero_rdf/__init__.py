@@ -27,7 +27,7 @@ from typing import Any, Callable, Dict, Generator, List, Optional, Set, Tuple, U
 import entrypoints
 from omero.cli import BaseControl, Parser, ProxyStringType
 from omero.gateway import BlitzGateway, BlitzObjectWrapper
-from omero.model import Dataset, Image, IObject, Plate, Project, Roi, Screen
+from omero.model import Dataset, Image, IObject, Plate, Project, Screen
 from omero.sys import ParametersI
 from omero_marshal import get_encoder
 from rdflib import BNode, Literal, URIRef
@@ -360,28 +360,25 @@ class RdfControl(BaseControl):
             for annotation in img.listAnnotations(None):
                 img._loadAnnotationLinks()
                 handler(annotation)
-
-            params = ParametersI()
-            params.addId(img.id)
-            query = """select r from Roi r
-                    join fetch r.annotationLinks as ral
-                    join fetch ral.child as rann
-                    join fetch r.shapes as s
-                    join fetch s.annotationLinks as sal
-                    join fetch sal.child as sann"""
-            for roi in gateway.getQueryService().findAllByQuery(
-                query, params, {"omero.group": str(img.details.group.id.val)}
-            ):
+            for roi in self._get_rois(gateway, img):
                 handler(roi)
-
-        elif isinstance(target, Roi):
-            roi = self._lookup(gateway, "Roi", target.id)
-            handler(roi)
-            for annotation in roi.listAnnotations(None):
-                handler(annotation)
 
         else:
             self.ctx.die(111, "TBD: %s" % target.__class__.__name__)
+
+    def _get_rois(self, gateway, img):
+        params = ParametersI()
+        params.addId(img.id)
+        query = """select r from Roi r
+                left outer join fetch r.annotationLinks as ral
+                left outer join fetch ral.child as rann
+                left outer join fetch r.shapes as s
+                left outer join fetch s.annotationLinks as sal
+                left outer join fetch sal.child as sann
+                     where r.image.id = :id"""
+        return gateway.getQueryService().findAllByQuery(
+            query, params, {"omero.group": str(img.details.group.id.val)}
+        )
 
     def _lookup(
         self, gateway: BlitzGateway, _type: str, oid: int
