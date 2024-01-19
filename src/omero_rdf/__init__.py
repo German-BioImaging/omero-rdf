@@ -88,10 +88,11 @@ class Handler:
     OME = "http://www.openmicroscopy.org/rdf/2016-06/ome_core/"
     OMERO = "http://www.openmicroscopy.org/TBD/omero/"
 
-    def __init__(self, gateway: BlitzGateway) -> None:
+    def __init__(self, gateway: BlitzGateway, use_ellide=False) -> None:
         self.gateway = gateway
         self.cache: Set[URIRef] = set()
         self.bnode = 0
+        self.use_ellide = False
         self.annotation_handlers: List[
             Callable[[URIRef, URIRef, Data], Generator[Triple, None, bool]]
         ] = []
@@ -133,7 +134,7 @@ class Handler:
     def ellide(self, v: Any) -> Literal:
         if isinstance(v, str):
             v = str(v)
-            if len(v) > 50:
+            if self.use_ellide and len(v) > 50:
                 v = f"{v[0:24]}...{v[-20:-1]}"
         return Literal(v)
 
