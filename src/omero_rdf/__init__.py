@@ -316,7 +316,7 @@ class Handler:
                     break
 
             if not handled:  # TODO: could move to a default handler
-                aid = (self.get_identity("AnnotationTBD", annotation["@id"]),)
+                aid = self.get_identity("AnnotationTBD", annotation["@id"])
                 yield (_id, URIRef(f"{self.OME}annotation"), aid)
                 yield from self.rdf(aid, annotation)
 
