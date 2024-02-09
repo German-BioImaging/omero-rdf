@@ -31,6 +31,7 @@ from omero.model import Dataset, Image, IObject, Plate, Project, Screen
 from omero.sys import ParametersI
 from omero_marshal import get_encoder
 from rdflib import BNode, Literal, URIRef
+from rdflib.namespace import RDF
 
 HELP = """A plugin for exporting rdf from OMERO
 
@@ -196,8 +197,10 @@ class Handler:
 
         for k, v in sorted(data.items()):
 
-            if k in ("@type", "@id", "omero:details", "Annotations"):
-                # Types that we want to omit fo
+            if k == "@type":
+                yield (_id, RDF.type, URIRef(v))
+            elif k in ("@id", "omero:details", "Annotations"):
+                # Types that we want to omit for now
                 pass
             else:
 
