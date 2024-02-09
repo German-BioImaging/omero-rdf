@@ -91,12 +91,17 @@ class Handler:
     OMERO = "http://www.openmicroscopy.org/TBD/omero/"
 
     def __init__(
-        self, gateway: BlitzGateway, pretty_print=False, use_ellide=False
+        self,
+        gateway: BlitzGateway,
+        pretty_print=False,
+        trim_whitespace=False,
+        use_ellide=False,
     ) -> None:
         self.gateway = gateway
         self.cache: Set[URIRef] = set()
         self.bnode = 0
         self.pretty_print = pretty_print
+        self.trim_whitespace = trim_whitespace
         self.use_ellide = use_ellide
         self.annotation_handlers = self.load_handlers()
         self.info = self.load_server()
@@ -162,7 +167,12 @@ class Handler:
             if self.use_ellide and len(v) > 50:
                 v = f"{v[0:24]}...{v[-20:-1]}"
             elif v.startswith(" ") or v.endswith(" "):
-                logging.warning("string has whitespace that needs trimming: '%s'", v)
+                if self.trim_whitespace:
+                    v = v.strip()
+                else:
+                    logging.warning(
+                        "string has whitespace that needs trimming: '%s'", v
+                    )
         return Literal(v)
 
     def get_class(self, o):
@@ -335,12 +345,21 @@ class RdfControl(BaseControl):
         parser.add_argument(
             "--ellide", action="store_true", default=False, help="Shorten strings"
         )
+        parser.add_argument(
+            "--trim-whitespace",
+            action="store_true",
+            default=False,
+            help="Remove leading and trailing whitespace from literals",
+        )
         parser.set_defaults(func=self.action)
 
     @gateway_required
     def action(self, args: Namespace) -> None:
         handler = Handler(
-            self.gateway, pretty_print=args.pretty, use_ellide=args.ellide
+            self.gateway,
+            pretty_print=args.pretty,
+            use_ellide=args.ellide,
+            trim_whitespace=args.trim_whitespace,
         )
         self.descend(self.gateway, args.target, handler)
         handler.close()
