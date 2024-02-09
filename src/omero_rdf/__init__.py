@@ -132,11 +132,16 @@ class Handler:
     def get_type(self, data: Data) -> str:
         return data.get("@type", "UNKNOWN").split("#")[-1]
 
-    def ellide(self, v: Any) -> Literal:
+    def literal(self, v: Any) -> Literal:
+        """
+        Prepare Python objects for use as literals
+        """
         if isinstance(v, str):
             v = str(v)
             if self.use_ellide and len(v) > 50:
                 v = f"{v[0:24]}...{v[-20:-1]}"
+            elif v.startswith(" ") or v.endswith(" "):
+                logging.warning("string has whitespace that needs trimming: '%s'", v)
         return Literal(v)
 
     def get_class(self, o):
@@ -247,17 +252,17 @@ class Handler:
                             yield (
                                 bnode,
                                 URIRef(f"{self.OME}Key"),
-                                self.ellide(item[0]),
+                                self.literal(item[0]),
                             )
                             yield (
                                 bnode,
                                 URIRef(f"{self.OME}Value"),
-                                self.ellide(item[1]),
+                                self.literal(item[1]),
                             )
                         else:
                             raise Exception(f"unknown list item: {item}")
                 else:
-                    yield (_id, key, self.ellide(v))  # TODO: Use Literal
+                    yield (_id, key, self.literal(v))
 
         # Special handling for Annotations
         annotations = data.get("Annotations", [])
