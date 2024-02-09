@@ -30,7 +30,7 @@ from omero.gateway import BlitzGateway, BlitzObjectWrapper
 from omero.model import Dataset, Image, IObject, Plate, Project, Screen
 from omero.sys import ParametersI
 from omero_marshal import get_encoder
-from rdflib import BNode, Literal, URIRef
+from rdflib import BNode, Graph, Literal, URIRef
 from rdflib.namespace import DCTERMS, RDF
 
 HELP = """A plugin for exporting rdf from OMERO
@@ -50,6 +50,7 @@ Data = Dict[str, Any]
 Subj = Union[BNode, URIRef]
 Obj = Union[BNode, Literal, URIRef]
 Triple = Tuple[Subj, URIRef, Obj]
+Handlers = List[Callable[[URIRef, URIRef, Data], Generator[Triple, None, bool]]]
 
 
 def gateway_required(func: Callable) -> Callable:  # type: ignore
@@ -89,23 +90,43 @@ class Handler:
     OME = "http://www.openmicroscopy.org/rdf/2016-06/ome_core/"
     OMERO = "http://www.openmicroscopy.org/TBD/omero/"
 
-    def __init__(self, gateway: BlitzGateway, use_ellide=False) -> None:
+    def __init__(
+        self, gateway: BlitzGateway, pretty_print=False, use_ellide=False
+    ) -> None:
         self.gateway = gateway
         self.cache: Set[URIRef] = set()
         self.bnode = 0
-        self.use_ellide = False
-        self.annotation_handlers: List[
-            Callable[[URIRef, URIRef, Data], Generator[Triple, None, bool]]
-        ] = []
+        self.pretty_print = pretty_print
+        self.use_ellide = use_ellide
+        self.annotation_handlers = self.load_handlers()
+        self.info = self.load_server()
+
+        if self.pretty_print:
+            self.graph = Graph()
+            self.graph.bind("wd", "http://www.wikidata.org/prop/direct/")
+            self.graph.bind(
+                "ome", "http://www.openmicroscopy.org/rdf/2016-06/ome_core/"
+            )
+            self.graph.bind(
+                "ome-xml", "http://www.openmicroscopy.org/Schemas/OME/2016-06#"
+            )  # FIXME
+            self.graph.bind("omero", "http://www.openmicroscopy.org/TBD/omero/")
+            # self.graph.bind("xs", XMLSCHEMA)
+            # TODO: Allow handlers to register namespaces
+
+    def load_handlers(self) -> Handlers:
+        annotation_handlers: Handlers = []
         for ep in entrypoints.get_group_all("omero_rdf.annotation_handler"):
             ah_loader = ep.load()
-            self.annotation_handlers.append(ah_loader(self))
+            annotation_handlers.append(ah_loader(self))
         # We know there are some built in handlers
-        assert len(self.annotation_handlers) >= 1
+        assert len(annotation_handlers) >= 1
+        return annotation_handlers
 
+    def load_server(self) -> Any:
         # Attempt to auto-detect server
         comm = self.gateway.c.getCommunicator()
-        self.info = self.gateway.c.getRouter(comm).ice_getEndpoints()[0].getInfo()
+        return self.gateway.c.getRouter(comm).ice_getEndpoints()[0].getInfo()
 
     def get_identity(self, _type: str, _id: Any) -> URIRef:
         if _type.endswith("I") and _type != ("ROI"):
@@ -151,7 +172,7 @@ class Handler:
             c = o._obj.__class__
         return c
 
-    def __call__(self, o: BlitzObjectWrapper) -> None:
+    def __call__(self, o: BlitzObjectWrapper) -> URIRef:
         c = self.get_class(o)
         encoder = get_encoder(c)
         if encoder is None:
@@ -187,8 +208,16 @@ class Handler:
         return _id
 
     def emit(self, triple: Triple):
-        s, p, o = triple
-        print(f"""{s.n3()}\t{p.n3()}\t{o.n3()} .""")
+        if self.pretty_print:
+            self.graph.add(triple)
+        else:
+            # Streaming
+            s, p, o = triple
+            print(f"""{s.n3()}\t{p.n3()}\t{o.n3()} .""")
+
+    def close(self):
+        if self.pretty_print:
+            print(self.graph.serialize())
 
     def rdf(
         self,
@@ -297,35 +326,46 @@ class RdfControl(BaseControl):
         rdf_type = ProxyStringType("Image")
         rdf_help = "Object to be exported to RDF"
         parser.add_argument("target", type=rdf_type, nargs="*", help=rdf_help)
+        parser.add_argument(
+            "--pretty",
+            action="store_true",
+            default=False,
+            help="Print in NT, prevents streaming",
+        )
+        parser.add_argument(
+            "--ellide", action="store_true", default=False, help="Shorten strings"
+        )
         parser.set_defaults(func=self.action)
 
     @gateway_required
     def action(self, args: Namespace) -> None:
-        self.descend(self.gateway, args.target)
+        handler = Handler(
+            self.gateway, pretty_print=args.pretty, use_ellide=args.ellide
+        )
+        self.descend(self.gateway, args.target, handler)
+        handler.close()
 
+    # TODO: move to handler?
     def descend(
         self,
         gateway: BlitzGateway,
         target: IObject,
-        handler: Optional[Handler] = None,
+        handler: Handler,
     ) -> URIRef:
         """
         Copied from omero-cli-render. Should be moved upstream
         """
 
-        if handler is None:
-            handler = Handler(gateway)
-
         if isinstance(target, list):
             for x in target:
-                self.descend(gateway, x)
-            return None  # TODO return a list?
+                randomid = self.descend(gateway, x, handler)
+            return randomid  # TODO return a list?
 
         elif isinstance(target, Screen):
             scr = self._lookup(gateway, "Screen", target.id)
             scrid = handler(scr)
             for plate in scr.listChildren():
-                pltid = self.descend(gateway, plate._obj)
+                pltid = self.descend(gateway, plate._obj, handler)
                 handler.emit((scrid, DCTERMS.isPartOf, pltid))
             for annotation in scr.listAnnotations(None):
                 handler(annotation)
@@ -352,7 +392,7 @@ class RdfControl(BaseControl):
             for annotation in prj.listAnnotations(None):
                 handler(annotation)
             for ds in prj.listChildren():
-                dsid = self.descend(gateway, ds._obj)
+                dsid = self.descend(gateway, ds._obj, handler)
                 handler.emit((prjid, DCTERMS.isPartOf, dsid))
             return prjid
 
