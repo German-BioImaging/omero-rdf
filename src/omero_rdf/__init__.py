@@ -31,7 +31,7 @@ from omero.model import Dataset, Image, IObject, Plate, Project, Screen
 from omero.sys import ParametersI
 from omero_marshal import get_encoder
 from rdflib import BNode, Literal, URIRef
-from rdflib.namespace import RDF
+from rdflib.namespace import DCTERMS, RDF
 
 HELP = """A plugin for exporting rdf from OMERO
 
@@ -153,23 +153,42 @@ class Handler:
             raise Exception(f"unknown: {c}")
         else:
             data = encoder.encode(o)
-            self.handle(data)
+            return self.handle(data)
 
-    def handle(self, data: Data) -> None:
+    def handle(self, data: Data) -> URIRef:
         """
-        TODO: Add quad representation as an option
+        Parses the data object into RDF triples.
+
+        Returns the id for the data object itself
         """
+        # TODO: Add quad representation as an option
         output: Triple
-        for output in self.rdf(data):
-            if output:
-                s, p, o = output
-                if None in (s, p, o):
-                    logging.debug("skipping None value: %s %s %s", s, p, o)
+
+        str_id = data.get("@id")
+        if not str_id:
+            raise Exception(f"missing id: {data}")
+
+        # TODO: this call is likely redundant
+        _type = self.get_type(data)
+        _id = self.get_identity(_type, str_id)
+
+        for triple in self.rdf(_id, data):
+            if triple:
+                if None in triple:
+                    logging.debug("skipping None value: %s %s %s", triple)
                 else:
-                    print(f"""{s.n3()}\t{p.n3()}\t{o.n3()} .""")
+                    self.emit(triple)
+
+        return _id
+
+    def emit(self, triple: Triple):
+        s, p, o = triple
+        print(f"""{s.n3()}\t{p.n3()}\t{o.n3()} .""")
 
     def rdf(
-        self, data: Data, _id: Optional[Subj] = None
+        self,
+        _id: Subj,
+        data: Data,
     ) -> Generator[Triple, None, None]:
 
         _type = self.get_type(data)
@@ -184,16 +203,11 @@ class Handler:
                 )
         # End workaround
 
-        if not _id:
-            str_id = data.get("@id")
-            if not str_id:
-                raise Exception(f"missing id: {data}")
-            _id = self.get_identity(_type, str_id)
-            if _id in self.cache:
-                logging.debug("# skipping previously seen %s", _id)
-                return
-            else:
-                self.cache.add(_id)
+        if _id in self.cache:
+            logging.debug("# skipping previously seen %s", _id)
+            return
+        else:
+            self.cache.add(_id)
 
         for k, v in sorted(data.items()):
 
@@ -218,7 +232,7 @@ class Handler:
                         # TODO: store by value for re-use?
                         bnode = self.get_bnode()
                         yield (_id, key, bnode)
-                        yield from self.rdf(v, _id=bnode)
+                        yield from self.rdf(bnode, v)
 
                 elif isinstance(v, list):
                     # This is likely the [[key, value], ...] structure?
@@ -258,12 +272,9 @@ class Handler:
                     break
 
             if not handled:  # TODO: could move to a default handler
-                yield (
-                    _id,
-                    URIRef(f"{self.OME}annotation"),
-                    self.get_identity("AnnotationTBD", annotation["@id"]),
-                )
-                yield from self.rdf(annotation)
+                aid = (self.get_identity("AnnotationTBD", annotation["@id"]),)
+                yield (_id, URIRef(f"{self.OME}annotation"), aid)
+                yield from self.rdf(aid, annotation)
 
     def yield_object_with_id(self, _id, key, v):
         """
@@ -272,7 +283,7 @@ class Handler:
         v_type = self.get_type(v)
         val = self.get_identity(v_type, v["@id"])
         yield (_id, key, val)
-        yield from self.rdf(v)
+        yield from self.rdf(_id, v)
 
 
 class RdfControl(BaseControl):
@@ -307,7 +318,7 @@ class RdfControl(BaseControl):
         target: IObject,
         batch: int = 100,
         handler: Optional[Handler] = None,
-    ) -> None:
+    ) -> URIRef:
         """
         Copied from omero-cli-render. Should be moved upstream
         """
@@ -318,53 +329,66 @@ class RdfControl(BaseControl):
         if isinstance(target, list):
             for x in target:
                 self.descend(gateway, x, batch)
+            return None  # TODO return a list?
+
         elif isinstance(target, Screen):
             scr = self._lookup(gateway, "Screen", target.id)
-            handler(scr)
+            scrid = handler(scr)
             for plate in scr.listChildren():
-                self.descend(gateway, plate._obj, batch)
+                pltid = self.descend(gateway, plate._obj, batch)
+                handler.emit((scrid, DCTERMS.isPartOf, pltid))
             for annotation in scr.listAnnotations(None):
                 handler(annotation)
+            return scrid
+
         elif isinstance(target, Plate):
             plt = self._lookup(gateway, "Plate", target.id)
-            handler(plt)
+            pltid = handler(plt)
             for annotation in plt.listAnnotations(None):
                 handler(annotation)
             for well in plt.listChildren():
-                handler(well)  # No descend
+                wid = handler(well)  # No descend
+                handler.emit((pltid, DCTERMS.isPartOf, wid))
                 for idx in range(0, well.countWellSample()):
                     img = well.getImage(idx)
-                    handler(img.getPrimaryPixels())
+                    imgid = handler(img.getPrimaryPixels())
                     handler(img)  # No descend
+                    handler.emit((wid, DCTERMS.isPartOf, imgid))
+            return pltid
 
         elif isinstance(target, Project):
             prj = self._lookup(gateway, "Project", target.id)
-            handler(prj)
+            prjid = handler(prj)
             for annotation in prj.listAnnotations(None):
                 handler(annotation)
             for ds in prj.listChildren():
-                self.descend(gateway, ds._obj, batch)
+                dsid = self.descend(gateway, ds._obj, batch)
+                handler.emit((prjid, DCTERMS.isPartOf, dsid))
+            return prjid
 
         elif isinstance(target, Dataset):
             ds = self._lookup(gateway, "Dataset", target.id)
-            handler(ds)
+            dsid = handler(ds)
             for annotation in ds.listAnnotations(None):
                 handler(annotation)
             for img in ds.listChildren():
-                handler(img)  # No descend
+                imgid = handler(img)  # No descend
+                handler.emit((dsid, DCTERMS.isPartOf, imgid))
                 handler(img.getPrimaryPixels())
                 for annotation in img.listAnnotations(None):
                     handler(annotation)
+            return dsid
 
         elif isinstance(target, Image):
             img = self._lookup(gateway, "Image", target.id)
-            handler(img)
+            imgid = handler(img)
             handler(img.getPrimaryPixels())
             for annotation in img.listAnnotations(None):
                 img._loadAnnotationLinks()
                 handler(annotation)
             for roi in self._get_rois(gateway, img):
                 handler(roi)
+            return imgid
 
         else:
             self.ctx.die(111, "TBD: %s" % target.__class__.__name__)
