@@ -289,34 +289,19 @@ class Handler:
 class RdfControl(BaseControl):
     def _configure(self, parser: Parser) -> None:
         parser.add_login_arguments()
-        parser.add_argument(
-            "--force",
-            "-f",
-            default=False,
-            action="store_true",
-            help="Actually do something. Default: false.",
-        )
-        parser.add_argument(
-            "--block-size",
-            "-b",
-            default=100,
-            action="store_true",
-            help="Actually do something. Default: false.",
-        )
         rdf_type = ProxyStringType("Image")
         rdf_help = "Object to be exported to RDF"
-        parser.add_argument("target", type=rdf_type, help=rdf_help)
+        parser.add_argument("target", type=rdf_type, nargs="*", help=rdf_help)
         parser.set_defaults(func=self.action)
 
     @gateway_required
     def action(self, args: Namespace) -> None:
-        self.descend(self.gateway, args.target, batch=1)
+        self.descend(self.gateway, args.target)
 
     def descend(
         self,
         gateway: BlitzGateway,
         target: IObject,
-        batch: int = 100,
         handler: Optional[Handler] = None,
     ) -> URIRef:
         """
@@ -328,14 +313,14 @@ class RdfControl(BaseControl):
 
         if isinstance(target, list):
             for x in target:
-                self.descend(gateway, x, batch)
+                self.descend(gateway, x)
             return None  # TODO return a list?
 
         elif isinstance(target, Screen):
             scr = self._lookup(gateway, "Screen", target.id)
             scrid = handler(scr)
             for plate in scr.listChildren():
-                pltid = self.descend(gateway, plate._obj, batch)
+                pltid = self.descend(gateway, plate._obj)
                 handler.emit((scrid, DCTERMS.isPartOf, pltid))
             for annotation in scr.listAnnotations(None):
                 handler(annotation)
@@ -362,7 +347,7 @@ class RdfControl(BaseControl):
             for annotation in prj.listAnnotations(None):
                 handler(annotation)
             for ds in prj.listChildren():
-                dsid = self.descend(gateway, ds._obj, batch)
+                dsid = self.descend(gateway, ds._obj)
                 handler.emit((prjid, DCTERMS.isPartOf, dsid))
             return prjid
 
