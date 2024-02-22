@@ -385,7 +385,7 @@ class RdfControl(BaseControl):
             scrid = handler(scr)
             for plate in scr.listChildren():
                 pltid = self.descend(gateway, plate._obj, handler)
-                handler.emit((scrid, DCTERMS.isPartOf, pltid))
+                handler.emit((pltid, DCTERMS.isPartOf, scrid))
             for annotation in scr.listAnnotations(None):
                 handler(annotation)
             return scrid
@@ -397,12 +397,12 @@ class RdfControl(BaseControl):
                 handler(annotation)
             for well in plt.listChildren():
                 wid = handler(well)  # No descend
-                handler.emit((pltid, DCTERMS.isPartOf, wid))
+                handler.emit((wid, DCTERMS.isPartOf, pltid))
                 for idx in range(0, well.countWellSample()):
                     img = well.getImage(idx)
                     imgid = handler(img.getPrimaryPixels())
                     handler(img)  # No descend
-                    handler.emit((wid, DCTERMS.isPartOf, imgid))
+                    handler.emit((imgid, DCTERMS.isPartOf, wid))
             return pltid
 
         elif isinstance(target, Project):
@@ -412,7 +412,7 @@ class RdfControl(BaseControl):
                 handler(annotation)
             for ds in prj.listChildren():
                 dsid = self.descend(gateway, ds._obj, handler)
-                handler.emit((prjid, DCTERMS.isPartOf, dsid))
+                handler.emit((dsid, DCTERMS.isPartOf, prjid))
             return prjid
 
         elif isinstance(target, Dataset):
@@ -422,7 +422,7 @@ class RdfControl(BaseControl):
                 handler(annotation)
             for img in ds.listChildren():
                 imgid = handler(img)  # No descend
-                handler.emit((dsid, DCTERMS.isPartOf, imgid))
+                handler.emit((imgid, DCTERMS.isPartOf, dsid))
                 handler(img.getPrimaryPixels())
                 for annotation in img.listAnnotations(None):
                     handler(annotation)
