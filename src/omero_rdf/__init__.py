@@ -386,6 +386,7 @@ class RdfControl(BaseControl):
             for plate in scr.listChildren():
                 pltid = self.descend(gateway, plate._obj, handler)
                 handler.emit((pltid, DCTERMS.isPartOf, scrid))
+                handler.emit((scrid, DCTERMS.hasPart, pltid))
             for annotation in scr.listAnnotations(None):
                 handler(annotation)
             return scrid
@@ -400,9 +401,9 @@ class RdfControl(BaseControl):
                 handler.emit((wid, DCTERMS.isPartOf, pltid))
                 for idx in range(0, well.countWellSample()):
                     img = well.getImage(idx)
-                    imgid = handler(img.getPrimaryPixels())
-                    handler(img)  # No descend
+                    imgid = self.descend(gateway, img._obj, handler)
                     handler.emit((imgid, DCTERMS.isPartOf, wid))
+                    handler.emit((wid, DCTERMS.hasPart, imgid))
             return pltid
 
         elif isinstance(target, Project):
@@ -413,6 +414,7 @@ class RdfControl(BaseControl):
             for ds in prj.listChildren():
                 dsid = self.descend(gateway, ds._obj, handler)
                 handler.emit((dsid, DCTERMS.isPartOf, prjid))
+                handler.emit((prjid, DCTERMS.hasPart, dsid))
             return prjid
 
         elif isinstance(target, Dataset):
@@ -421,17 +423,17 @@ class RdfControl(BaseControl):
             for annotation in ds.listAnnotations(None):
                 handler(annotation)
             for img in ds.listChildren():
-                imgid = handler(img)  # No descend
+                imgid = self.descend(gateway, img._obj, handler)
                 handler.emit((imgid, DCTERMS.isPartOf, dsid))
-                handler(img.getPrimaryPixels())
-                for annotation in img.listAnnotations(None):
-                    handler(annotation)
+                handler.emit((dsid, DCTERMS.hasPart, imgid))
             return dsid
 
         elif isinstance(target, Image):
             img = self._lookup(gateway, "Image", target.id)
             imgid = handler(img)
-            handler(img.getPrimaryPixels())
+            pixid = handler(img.getPrimaryPixels())
+            handler.emit((pixid, DCTERMS.isPartOf, imgid))
+            handler.emit((imgid, DCTERMS.hasPart, pixid))
             for annotation in img.listAnnotations(None):
                 img._loadAnnotationLinks()
                 handler(annotation)
@@ -440,7 +442,7 @@ class RdfControl(BaseControl):
             return imgid
 
         else:
-            self.ctx.die(111, "TBD: %s" % target.__class__.__name__)
+            self.ctx.die(111, "unknown target: %s" % target.__class__.__name__)
 
     def _get_rois(self, gateway, img):
         params = ParametersI()
