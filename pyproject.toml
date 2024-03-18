@@ -4,6 +4,8 @@ requires = [
     "setuptools-scm>=8.0",
 ]
 
+[tool.setuptools_scm]
+
 [tools.setuptools.dynamic]
 version = {attr = "omero_rdf.__version__"}
 
