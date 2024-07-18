@@ -388,14 +388,16 @@ class RdfControl(BaseControl):
                 handler.emit((pltid, DCTERMS.isPartOf, scrid))
                 handler.emit((scrid, DCTERMS.hasPart, pltid))
             for annotation in scr.listAnnotations(None):
-                handler(annotation)
+                annid = handler(annotation)
+                handler.emit((annid, DCTERMS.isPartOf, scrid))
             return scrid
 
         elif isinstance(target, Plate):
             plt = self._lookup(gateway, "Plate", target.id)
             pltid = handler(plt)
             for annotation in plt.listAnnotations(None):
-                handler(annotation)
+                annid = handler(annotation)
+                handler.emit((annid, DCTERMS.isPartOf, pltid))
             for well in plt.listChildren():
                 wid = handler(well)  # No descend
                 handler.emit((wid, DCTERMS.isPartOf, pltid))
@@ -410,7 +412,8 @@ class RdfControl(BaseControl):
             prj = self._lookup(gateway, "Project", target.id)
             prjid = handler(prj)
             for annotation in prj.listAnnotations(None):
-                handler(annotation)
+                annid = handler(annotation)
+                handler.emit((annid, DCTERMS.isPartOf, prjid))
             for ds in prj.listChildren():
                 dsid = self.descend(gateway, ds._obj, handler)
                 handler.emit((dsid, DCTERMS.isPartOf, prjid))
@@ -421,7 +424,8 @@ class RdfControl(BaseControl):
             ds = self._lookup(gateway, "Dataset", target.id)
             dsid = handler(ds)
             for annotation in ds.listAnnotations(None):
-                handler(annotation)
+                annid = handler(annotation)
+                handler.emit((annid, DCTERMS.isPartOf, dsid))
             for img in ds.listChildren():
                 imgid = self.descend(gateway, img._obj, handler)
                 handler.emit((imgid, DCTERMS.isPartOf, dsid))
@@ -436,7 +440,8 @@ class RdfControl(BaseControl):
             handler.emit((imgid, DCTERMS.hasPart, pixid))
             for annotation in img.listAnnotations(None):
                 img._loadAnnotationLinks()
-                handler(annotation)
+                annid = handler(annotation)
+                handler.emit((annid, DCTERMS.isPartOf, imgid))
             for roi in self._get_rois(gateway, img):
                 handler(roi)
             return imgid
