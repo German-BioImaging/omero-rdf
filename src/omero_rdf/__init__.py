@@ -376,9 +376,7 @@ class RdfControl(BaseControl):
         """
 
         if isinstance(target, list):
-            for x in target:
-                randomid = self.descend(gateway, x, handler)
-            return randomid  # TODO return a list?
+            return([self.descend(gateway, t, handler) for t in target])
 
         elif isinstance(target, Screen):
             scr = self._lookup(gateway, "Screen", target.id)
