@@ -335,7 +335,7 @@ class RdfControl(BaseControl):
         parser.add_login_arguments()
         rdf_type = ProxyStringType("Image")
         rdf_help = "Object to be exported to RDF"
-        parser.add_argument("target", type=rdf_type, nargs="*", help=rdf_help)
+        parser.add_argument("target", type=rdf_type, nargs="+", help=rdf_help)
         parser.add_argument(
             "--pretty",
             action="store_true",
