@@ -335,7 +335,7 @@ class RdfControl(BaseControl):
         parser.add_login_arguments()
         rdf_type = ProxyStringType("Image")
         rdf_help = "Object to be exported to RDF"
-        parser.add_argument("target", type=rdf_type, nargs="*", help=rdf_help)
+        parser.add_argument("target", type=rdf_type, nargs="+", help=rdf_help)
         parser.add_argument(
             "--pretty",
             action="store_true",
@@ -376,9 +376,7 @@ class RdfControl(BaseControl):
         """
 
         if isinstance(target, list):
-            for x in target:
-                randomid = self.descend(gateway, x, handler)
-            return randomid  # TODO return a list?
+            return([self.descend(gateway, t, handler) for t in target])
 
         elif isinstance(target, Screen):
             scr = self._lookup(gateway, "Screen", target.id)
