@@ -376,7 +376,7 @@ class RdfControl(BaseControl):
         """
 
         if isinstance(target, list):
-            return([self.descend(gateway, t, handler) for t in target])
+            return [self.descend(gateway, t, handler) for t in target]
 
         elif isinstance(target, Screen):
             scr = self._lookup(gateway, "Screen", target.id)
