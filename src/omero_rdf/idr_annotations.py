@@ -222,7 +222,7 @@ class IDRAnnotationHandler:
                 yield (thing, DC.identifier, URIRef(value))
 
             #
-            # GIDE Exploration
+            # GIDE Exploration: Image
             #
 
             elif name == "Strain":
@@ -259,6 +259,95 @@ class IDRAnnotationHandler:
                 yield (
                     thing,
                     URIRef("https://founding-gide.eurobioimaging.eu/tmp/file"),
+                    Literal(value),
+                )
+
+            #
+            # GIDE Exploration: Project/Study
+            #
+
+            elif name == "Sample Type":
+                yield (
+                    thing,
+                    URIRef("https://founding-gide.eurobioimaging.eu/tmp/sample_type"),
+                    Literal(value),
+                )
+            elif name == "Study Type":
+                yield (
+                    thing,
+                    URIRef("https://founding-gide.eurobioimaging.eu/tmp/study_type"),
+                    Literal(value),
+                )
+            elif name == "Imaging Method":
+                yield (
+                    thing,
+                    URIRef(
+                        "https://founding-gide.eurobioimaging.eu/tmp/imaging_method"
+                    ),
+                    Literal(value),
+                )
+            elif name == "Publication Title":
+                yield (
+                    thing,
+                    URIRef("https://founding-gide.eurobioimaging.eu/tmp/pub_title"),
+                    Literal(value),
+                )
+            elif name == "Publication Authors":
+                yield (
+                    thing,
+                    URIRef("https://founding-gide.eurobioimaging.eu/tmp/author"),
+                    Literal(value),
+                )
+            elif name == "PubMed ID":
+                yield (
+                    thing,
+                    URIRef("https://founding-gide.eurobioimaging.eu/tmp/pubmed"),
+                    Literal(value),
+                )
+            elif name == "Publication DOI":
+                yield (
+                    thing,
+                    URIRef("https://founding-gide.eurobioimaging.eu/tmp/doi"),
+                    Literal(value),
+                )
+            elif name == "Release Date":
+                yield (
+                    thing,
+                    URIRef("https://founding-gide.eurobioimaging.eu/tmp/release_date"),
+                    Literal(value),
+                )
+            elif name == "License":
+                yield (
+                    thing,
+                    URIRef("https://founding-gide.eurobioimaging.eu/tmp/license"),
+                    Literal(value),
+                )
+            elif name == "Copyright":
+                yield (
+                    thing,
+                    URIRef("https://founding-gide.eurobioimaging.eu/tmp/copyright"),
+                    Literal(value),
+                )
+            elif name == "Data Publisher":
+                yield (
+                    thing,
+                    URIRef(
+                        "https://founding-gide.eurobioimaging.eu/tmp/data_publisher"
+                    ),
+                    Literal(value),
+                )
+            elif name == "Data DOI":
+                yield (
+                    thing,
+                    URIRef("https://founding-gide.eurobioimaging.eu/tmp/data_doi"),
+                    Literal(value),
+                )
+            elif name == "Annotation File":
+                yield (
+                    thing,
+                    URIRef(
+                        "https://founding-gide.eurobioimaging.eu/tmp/annotation_file"
+                    ),
                     Literal(value),
                 )
             else:
