@@ -1,11 +1,11 @@
 .. image:: https://github.com/german-bioimaging/omero-rdf/workflows/OMERO/badge.svg
-    :target: https://github.com/german-bioimaging/omero-rdf
+    :target: https://github.com/german-bioimaging/omero-rdf/actions
 
 .. image:: https://badge.fury.io/py/omero-rdf.svg
     :target: https://badge.fury.io/py/omero-rdf
 
 omero-rdf
-==================================
+=========
 
 A plugin for exporting rdf from OMERO
 
