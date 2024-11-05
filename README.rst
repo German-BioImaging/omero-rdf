@@ -1,4 +1,4 @@
-.. image:: https://github.com/german-bioimaging/omero-rdf/workflows/OMERO/badge.svg
+.. image:: https://github.com/German-BioImaging/omero-rdf/workflows/OMERO/badge.svg
     :target: https://github.com/german-bioimaging/omero-rdf/actions
 
 .. image:: https://badge.fury.io/py/omero-rdf.svg
