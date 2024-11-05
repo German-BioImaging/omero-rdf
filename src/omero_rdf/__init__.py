@@ -134,7 +134,7 @@ class NTriplesFormat(StreamingFormat):
     def __init__(self):
         super().__init__()
 
-    def serialize(self, triple):
+    def serialize_triple(self, triple):
         s, p, o = triple
         return f"""{s.n3()}\t{p.n3()}\t{o.n3()} ."""
 
