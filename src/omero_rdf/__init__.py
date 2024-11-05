@@ -189,8 +189,8 @@ class ROCrateFormat(JSONLDFormat):
     def serialize_graph(self):
         ctx = self.context()
         j = pyld_jsonld_from_rdflib_graph(self.graph)
-        j = jsonld.compact(j, ctx)
         j = jsonld.flatten(j, ctx)
+        j = jsonld.compact(j, ctx)
         j["@graph"][0:0] = [
             {
                 "@id": "./",
@@ -476,7 +476,7 @@ class RdfControl(BaseControl):
         )
         format_group.add_argument(
             "--format",
-            "-f",
+            "-F",
             default="ntriples",
             choices=format_list(),
         )
