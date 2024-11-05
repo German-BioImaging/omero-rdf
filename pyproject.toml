@@ -23,6 +23,8 @@ dependencies = [
     "types-entrypoints",
     "future",
     "rdflib",
+    "pyld",
+    "rdflib-pyld-compat",
     "omero-marshal",
     "wikidataintegrator",
     "packaging"

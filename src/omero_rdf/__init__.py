@@ -19,6 +19,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 
+import json
 import logging
 from argparse import Namespace
 from functools import wraps
@@ -30,8 +31,10 @@ from omero.gateway import BlitzGateway, BlitzObjectWrapper
 from omero.model import Dataset, Image, IObject, Plate, Project, Screen
 from omero.sys import ParametersI
 from omero_marshal import get_encoder
+from pyld import jsonld
 from rdflib import BNode, Graph, Literal, URIRef
 from rdflib.namespace import DCTERMS, RDF
+from rdflib_pyld_compat import pyld_jsonld_from_rdflib_graph
 
 HELP = """A plugin for exporting rdf from OMERO
 
@@ -156,16 +159,52 @@ class JSONLDFormat(NonStreamingFormat):
     def __init__(self):
         super().__init__()
 
-    def serialize_graph(self) -> None:
+    def context(self):
         # TODO: allow handlers to add to this
-        context = {
+        return {
             "@wd": "http://www.wikidata.org/prop/direct/",
             "@ome": "http://www.openmicroscopy.org/rdf/2016-06/ome_core/",
             "@ome-xml": "http://www.openmicroscopy.org/Schemas/OME/2016-06#",
             "@omero": "http://www.openmicroscopy.org/TBD/omero/",
             "@idr": "https://idr.openmicroscopy.org/",
         }
-        return self.graph.serialize(format="json-ld", context=context, indent=4)
+
+    def serialize_graph(self) -> None:
+        return self.graph.serialize(
+            format="json-ld",
+            context=self.context(),
+            indent=4,
+        )
+
+
+class ROCrateFormat(JSONLDFormat):
+    def __init__(self):
+        super().__init__()
+
+    def context(self):
+        ctx = super().context()
+        ctx["@rocrate"] = "https://w3id.org/ro/crate/1.1/context"
+        return ctx
+
+    def serialize_graph(self):
+        ctx = self.context()
+        j = pyld_jsonld_from_rdflib_graph(self.graph)
+        j = jsonld.compact(j, ctx)
+        j = jsonld.flatten(j, ctx)
+        j["@graph"][0:0] = [
+            {
+                "@id": "./",
+                "@type": "Dataset",
+                "rocrate:license": "https://creativecommons.org/licenses/by/4.0/",
+            },
+            {
+                "@id": "ro-crate-metadata.json",
+                "@type": "CreativeWork",
+                "rocrate:conformsTo": {"@id": "https://w3id.org/ro/crate/1.1"},
+                "rocrate:about": {"@id": "./"},
+            },
+        ]
+        return json.dumps(j, indent=4)
 
 
 def format_mapping():
@@ -173,6 +212,7 @@ def format_mapping():
         "ntriples": NTriplesFormat(),
         "jsonld": JSONLDFormat(),
         "turtle": TurtleFormat(),
+        "ro-crate": ROCrateFormat(),
     }
 
 
