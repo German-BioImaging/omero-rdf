@@ -83,7 +83,16 @@ def gateway_required(func: Callable) -> Callable:  # type: ignore
 
 class Format:
     """
-    Output
+    Output mechanisms split into two types: streaming and non-streaming.
+    Critical methods include:
+
+        - streaming:
+            - serialize_triple: return a representation of the triple
+        - non-streaming:
+            - add: store a triple for later serialization
+            - serialize_graph: return a representation of the graph
+
+    See the subclasses for more information.
     """
 
     def __init__(self):
@@ -191,6 +200,8 @@ class ROCrateFormat(JSONLDFormat):
         j = pyld_jsonld_from_rdflib_graph(self.graph)
         j = jsonld.flatten(j, ctx)
         j = jsonld.compact(j, ctx)
+        if "@graph" not in j:
+            raise Exception(j)
         j["@graph"][0:0] = [
             {
                 "@id": "./",
@@ -239,6 +250,7 @@ class Handler:
         trim_whitespace=False,
         use_ellide=False,
         first_handler_wins=False,
+        descent="recursive",
     ) -> None:
         self.gateway = gateway
         self.cache: Set[URIRef] = set()
@@ -247,8 +259,16 @@ class Handler:
         self.trim_whitespace = trim_whitespace
         self.use_ellide = use_ellide
         self.first_handler_wins = first_handler_wins
+        self.descent = descent
+        self._descent_level = 0
         self.annotation_handlers = self.load_handlers()
         self.info = self.load_server()
+
+    def skip_descent(self):
+        return self.descent != "recursive" and self._descent_level > 0
+
+    def descending(self):
+        self._descent_level += 1
 
     def load_handlers(self) -> Handlers:
         annotation_handlers: Handlers = []
@@ -481,6 +501,12 @@ class RdfControl(BaseControl):
             choices=format_list(),
         )
         parser.add_argument(
+            "--descent",
+            "-S",
+            default="recursive",
+            help="Descent strategy to use: recursive, flat",
+        )
+        parser.add_argument(
             "--ellide", action="store_true", default=False, help="Shorten strings"
         )
         parser.add_argument(
@@ -513,6 +539,7 @@ class RdfControl(BaseControl):
             use_ellide=args.ellide,
             trim_whitespace=args.trim_whitespace,
             first_handler_wins=args.first_handler_wins,
+            descent=args.descent,
         )
         self.descend(self.gateway, args.target, handler)
         handler.close()
@@ -531,7 +558,15 @@ class RdfControl(BaseControl):
         if isinstance(target, list):
             return [self.descend(gateway, t, handler) for t in target]
 
-        elif isinstance(target, Screen):
+        # "descent" doesn't apply to a list
+        if handler.skip_descent():
+            objid = handler(target)
+            logging.debug("skip descent: %s", objid)
+            return objid
+        else:
+            handler.descending()
+
+        if isinstance(target, Screen):
             scr = self._lookup(gateway, "Screen", target.id)
             scrid = handler(scr)
             for plate in scr.listChildren():
