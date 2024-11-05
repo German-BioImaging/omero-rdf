@@ -238,6 +238,7 @@ class Handler:
         formatter: Format,
         trim_whitespace=False,
         use_ellide=False,
+        first_handler_wins=False,
     ) -> None:
         self.gateway = gateway
         self.cache: Set[URIRef] = set()
@@ -245,6 +246,7 @@ class Handler:
         self.formatter = formatter
         self.trim_whitespace = trim_whitespace
         self.use_ellide = use_ellide
+        self.first_handler_wins = first_handler_wins
         self.annotation_handlers = self.load_handlers()
         self.info = self.load_server()
 
@@ -372,6 +374,8 @@ class Handler:
                     None,
                     data,
                 )
+                if self.first_handler_wins and handled:
+                    return
         # End workaround
 
         if _id in self.cache:
@@ -480,6 +484,13 @@ class RdfControl(BaseControl):
             "--ellide", action="store_true", default=False, help="Shorten strings"
         )
         parser.add_argument(
+            "--first-handler-wins",
+            "-1",
+            action="store_true",
+            default=False,
+            help="Don't duplicate annotations",
+        )
+        parser.add_argument(
             "--trim-whitespace",
             action="store_true",
             default=False,
@@ -501,6 +512,7 @@ class RdfControl(BaseControl):
             formatter=args.format,
             use_ellide=args.ellide,
             trim_whitespace=args.trim_whitespace,
+            first_handler_wins=args.first_handler_wins,
         )
         self.descend(self.gateway, args.target, handler)
         handler.close()
