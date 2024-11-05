@@ -43,7 +43,11 @@ it is given. This may be one of: Image, Dataset, Project, Plate, and Screen.
 
 Examples:
 
-    omero rdf Image:123
+  omero rdf Image:123                # Streams each triple found in N-Triples format
+  omero rdf -F=jsonld Image:123      # Collects all triples and prints formatted output
+  omero rdf -S=flat Project:123      # Do not recurse into containers ("flat-strategy")
+  omero rdf --trim-whitespace ...    # Strip leading and trailing whitespace from text
+  omero rdf --first-handler-wins ... # First mapping wins; others will be ignored
 
 """
 
