@@ -221,6 +221,46 @@ class IDRAnnotationHandler:
             elif name == "Gene Identifier URL":
                 yield (thing, DC.identifier, URIRef(value))
 
+            #
+            # GIDE Exploration
+            #
+
+            elif name == "Strain":
+                yield (
+                    thing,
+                    URIRef("https://founding-gide.eurobioimaging.eu/tmp/strain"),
+                    Literal(value),
+                )
+            elif name == "Genotype":
+                yield (
+                    thing,
+                    URIRef("https://founding-gide.eurobioimaging.eu/tmp/genotype"),
+                    Literal(value),
+                )
+            elif name == "Material Type":
+                yield (
+                    thing,
+                    URIRef("https://founding-gide.eurobioimaging.eu/tmp/material"),
+                    Literal(value),
+                )
+            elif name == "Intravenous Injection":
+                yield (
+                    thing,
+                    URIRef("https://founding-gide.eurobioimaging.eu/tmp/injection"),
+                    Literal(value),
+                )
+            elif name == "Protocol":
+                yield (
+                    thing,
+                    URIRef("https://founding-gide.eurobioimaging.eu/tmp/protocol"),
+                    Literal(value),
+                )
+            elif name == "Image File Comments":
+                yield (
+                    thing,
+                    URIRef("https://founding-gide.eurobioimaging.eu/tmp/file"),
+                    Literal(value),
+                )
             else:
                 logging.warning("# unknown key: %s", name)
 
