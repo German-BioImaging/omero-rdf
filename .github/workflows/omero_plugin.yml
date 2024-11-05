@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       STAGE: cli
-      PROJECT: rdf
+      PLUGIN: rdf
     steps:
       - uses: actions/checkout@v4
       - name: Checkout omero-test-infra
