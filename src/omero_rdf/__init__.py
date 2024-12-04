@@ -223,7 +223,8 @@ class Handler:
         else:
             # Streaming
             s, p, o = triple
-            print(f"""{s.n3()}\t{p.n3()}\t{o.n3()} .""")
+            escaped = o.n3().encode("unicode_escape").decode("utf-8")
+            print(f"""{s.n3()}\t{p.n3()}\t{escaped} .""")
 
     def close(self):
         if self.pretty_print:
