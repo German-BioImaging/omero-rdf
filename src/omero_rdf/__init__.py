@@ -19,6 +19,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 
+import json
 import logging
 from argparse import Namespace
 from functools import wraps
@@ -30,8 +31,10 @@ from omero.gateway import BlitzGateway, BlitzObjectWrapper
 from omero.model import Dataset, Image, IObject, Plate, Project, Screen
 from omero.sys import ParametersI
 from omero_marshal import get_encoder
+from pyld import jsonld
 from rdflib import BNode, Graph, Literal, URIRef
 from rdflib.namespace import DCTERMS, RDF
+from rdflib_pyld_compat import pyld_jsonld_from_rdflib_graph
 
 HELP = """A plugin for exporting rdf from OMERO
 
@@ -40,7 +43,11 @@ it is given. This may be one of: Image, Dataset, Project, Plate, and Screen.
 
 Examples:
 
-    omero rdf Image:123
+  omero rdf Image:123                # Streams each triple found in N-Triples format
+  omero rdf -F=jsonld Image:123      # Collects all triples and prints formatted output
+  omero rdf -S=flat Project:123      # Do not recurse into containers ("flat-strategy")
+  omero rdf --trim-whitespace ...    # Strip leading and trailing whitespace from text
+  omero rdf --first-handler-wins ... # First mapping wins; others will be ignored
 
 """
 
@@ -78,6 +85,157 @@ def gateway_required(func: Callable) -> Callable:  # type: ignore
     return _wrapper
 
 
+class Format:
+    """
+    Output mechanisms split into two types: streaming and non-streaming.
+    Critical methods include:
+
+        - streaming:
+            - serialize_triple: return a representation of the triple
+        - non-streaming:
+            - add: store a triple for later serialization
+            - serialize_graph: return a representation of the graph
+
+    See the subclasses for more information.
+    """
+
+    def __init__(self):
+        self.streaming = None
+
+    def __str__(self):
+        return self.__class__.__name__[:-6].lower()
+
+    def __lt__(self, other):
+        return str(self) < str(other)
+
+    def add(self, triple):
+        raise NotImplementedError()
+
+    def serialize_triple(self, triple):
+        raise NotImplementedError()
+
+    def serialize_graph(self):
+        raise NotImplementedError()
+
+
+class StreamingFormat(Format):
+    def __init__(self):
+        super().__init__()
+        self.streaming = True
+
+    def add(self, triple):
+        raise RuntimeError("adding not supported during streaming")
+
+    def serialize_graph(self):
+        raise RuntimeError("graph serialization not supported during streaming")
+
+
+class NTriplesFormat(StreamingFormat):
+    def __init__(self):
+        super().__init__()
+
+    def serialize_triple(self, triple):
+        s, p, o = triple
+        escaped = o.n3().encode("unicode_escape").decode("utf-8")
+        print(f"""{s.n3()}\t{p.n3()}\t{escaped} .""")
+
+
+class NonStreamingFormat(Format):
+    def __init__(self):
+        super().__init__()
+        self.streaming = False
+        self.graph = Graph()
+        self.graph.bind("wd", "http://www.wikidata.org/prop/direct/")
+        self.graph.bind("ome", "http://www.openmicroscopy.org/rdf/2016-06/ome_core/")
+        self.graph.bind(
+            "ome-xml", "http://www.openmicroscopy.org/Schemas/OME/2016-06#"
+        )  # FIXME
+        self.graph.bind("omero", "http://www.openmicroscopy.org/TBD/omero/")
+        # self.graph.bind("xs", XMLSCHEMA)
+        # TODO: Allow handlers to register namespaces
+
+    def add(self, triple):
+        self.graph.add(triple)
+
+    def serialize_triple(self, triple):
+        raise RuntimeError("triple serialization not supported during streaming")
+
+
+class TurtleFormat(NonStreamingFormat):
+    def __init__(self):
+        super().__init__()
+
+    def serialize_graph(self) -> None:
+        return self.graph.serialize()
+
+
+class JSONLDFormat(NonStreamingFormat):
+    def __init__(self):
+        super().__init__()
+
+    def context(self):
+        # TODO: allow handlers to add to this
+        return {
+            "@wd": "http://www.wikidata.org/prop/direct/",
+            "@ome": "http://www.openmicroscopy.org/rdf/2016-06/ome_core/",
+            "@ome-xml": "http://www.openmicroscopy.org/Schemas/OME/2016-06#",
+            "@omero": "http://www.openmicroscopy.org/TBD/omero/",
+            "@idr": "https://idr.openmicroscopy.org/",
+        }
+
+    def serialize_graph(self) -> None:
+        return self.graph.serialize(
+            format="json-ld",
+            context=self.context(),
+            indent=4,
+        )
+
+
+class ROCrateFormat(JSONLDFormat):
+    def __init__(self):
+        super().__init__()
+
+    def context(self):
+        ctx = super().context()
+        ctx["@rocrate"] = "https://w3id.org/ro/crate/1.1/context"
+        return ctx
+
+    def serialize_graph(self):
+        ctx = self.context()
+        j = pyld_jsonld_from_rdflib_graph(self.graph)
+        j = jsonld.flatten(j, ctx)
+        j = jsonld.compact(j, ctx)
+        if "@graph" not in j:
+            raise Exception(j)
+        j["@graph"][0:0] = [
+            {
+                "@id": "./",
+                "@type": "Dataset",
+                "rocrate:license": "https://creativecommons.org/licenses/by/4.0/",
+            },
+            {
+                "@id": "ro-crate-metadata.json",
+                "@type": "CreativeWork",
+                "rocrate:conformsTo": {"@id": "https://w3id.org/ro/crate/1.1"},
+                "rocrate:about": {"@id": "./"},
+            },
+        ]
+        return json.dumps(j, indent=4)
+
+
+def format_mapping():
+    return {
+        "ntriples": NTriplesFormat(),
+        "jsonld": JSONLDFormat(),
+        "turtle": TurtleFormat(),
+        "ro-crate": ROCrateFormat(),
+    }
+
+
+def format_list():
+    return format_mapping().keys()
+
+
 class Handler:
     """
     Instances are used to generate triples.
@@ -93,31 +251,29 @@ class Handler:
     def __init__(
         self,
         gateway: BlitzGateway,
-        pretty_print=False,
+        formatter: Format,
         trim_whitespace=False,
         use_ellide=False,
+        first_handler_wins=False,
+        descent="recursive",
     ) -> None:
         self.gateway = gateway
         self.cache: Set[URIRef] = set()
         self.bnode = 0
-        self.pretty_print = pretty_print
+        self.formatter = formatter
         self.trim_whitespace = trim_whitespace
         self.use_ellide = use_ellide
+        self.first_handler_wins = first_handler_wins
+        self.descent = descent
+        self._descent_level = 0
         self.annotation_handlers = self.load_handlers()
         self.info = self.load_server()
 
-        if self.pretty_print:
-            self.graph = Graph()
-            self.graph.bind("wd", "http://www.wikidata.org/prop/direct/")
-            self.graph.bind(
-                "ome", "http://www.openmicroscopy.org/rdf/2016-06/ome_core/"
-            )
-            self.graph.bind(
-                "ome-xml", "http://www.openmicroscopy.org/Schemas/OME/2016-06#"
-            )  # FIXME
-            self.graph.bind("omero", "http://www.openmicroscopy.org/TBD/omero/")
-            # self.graph.bind("xs", XMLSCHEMA)
-            # TODO: Allow handlers to register namespaces
+    def skip_descent(self):
+        return self.descent != "recursive" and self._descent_level > 0
+
+    def descending(self):
+        self._descent_level += 1
 
     def load_handlers(self) -> Handlers:
         annotation_handlers: Handlers = []
@@ -218,17 +374,14 @@ class Handler:
         return _id
 
     def emit(self, triple: Triple):
-        if self.pretty_print:
-            self.graph.add(triple)
+        if self.formatter.streaming:
+            print(self.formatter.serialize_triple(triple))
         else:
-            # Streaming
-            s, p, o = triple
-            escaped = o.n3().encode("unicode_escape").decode("utf-8")
-            print(f"""{s.n3()}\t{p.n3()}\t{escaped} .""")
+            self.formatter.add(triple)
 
     def close(self):
-        if self.pretty_print:
-            print(self.graph.serialize())
+        if not self.formatter.streaming:
+            print(self.formatter.serialize_graph())
 
     def rdf(
         self,
@@ -246,6 +399,8 @@ class Handler:
                     None,
                     data,
                 )
+                if self.first_handler_wins and handled:
+                    return
         # End workaround
 
         if _id in self.cache:
@@ -337,14 +492,34 @@ class RdfControl(BaseControl):
         rdf_type = ProxyStringType("Image")
         rdf_help = "Object to be exported to RDF"
         parser.add_argument("target", type=rdf_type, nargs="+", help=rdf_help)
-        parser.add_argument(
+        format_group = parser.add_mutually_exclusive_group()
+        format_group.add_argument(
             "--pretty",
             action="store_true",
             default=False,
-            help="Print in NT, prevents streaming",
+            help="Shortcut for --format=turtle",
+        )
+        format_group.add_argument(
+            "--format",
+            "-F",
+            default="ntriples",
+            choices=format_list(),
+        )
+        parser.add_argument(
+            "--descent",
+            "-S",
+            default="recursive",
+            help="Descent strategy to use: recursive, flat",
         )
         parser.add_argument(
             "--ellide", action="store_true", default=False, help="Shorten strings"
+        )
+        parser.add_argument(
+            "--first-handler-wins",
+            "-1",
+            action="store_true",
+            default=False,
+            help="Don't duplicate annotations",
         )
         parser.add_argument(
             "--trim-whitespace",
@@ -356,11 +531,20 @@ class RdfControl(BaseControl):
 
     @gateway_required
     def action(self, args: Namespace) -> None:
+
+        # Support hidden --pretty flag
+        if args.pretty:
+            args.format = TurtleFormat()
+        else:
+            args.format = format_mapping()[args.format]
+
         handler = Handler(
             self.gateway,
-            pretty_print=args.pretty,
+            formatter=args.format,
             use_ellide=args.ellide,
             trim_whitespace=args.trim_whitespace,
+            first_handler_wins=args.first_handler_wins,
+            descent=args.descent,
         )
         self.descend(self.gateway, args.target, handler)
         handler.close()
@@ -379,7 +563,15 @@ class RdfControl(BaseControl):
         if isinstance(target, list):
             return [self.descend(gateway, t, handler) for t in target]
 
-        elif isinstance(target, Screen):
+        # "descent" doesn't apply to a list
+        if handler.skip_descent():
+            objid = handler(target)
+            logging.debug("skip descent: %s", objid)
+            return objid
+        else:
+            handler.descending()
+
+        if isinstance(target, Screen):
             scr = self._lookup(gateway, "Screen", target.id)
             scrid = handler(scr)
             for plate in scr.listChildren():
