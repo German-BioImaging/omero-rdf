@@ -137,7 +137,7 @@ class NTriplesFormat(StreamingFormat):
     def serialize_triple(self, triple):
         s, p, o = triple
         escaped = o.n3().encode("unicode_escape").decode("utf-8")
-        print(f"""{s.n3()}\t{p.n3()}\t{escaped} .""")
+        return f"""{s.n3()}\t{p.n3()}\t{escaped} ."""
 
 
 class NonStreamingFormat(Format):
