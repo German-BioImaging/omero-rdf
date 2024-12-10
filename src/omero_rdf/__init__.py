@@ -316,8 +316,8 @@ class Handler:
                 # Types that we want to omit for now
                 pass
             else:
-                if not key_in_context(key, self.context):
-                    logging.warning("Did not find in OMERO context: %s. Add it to the spreadsheet of new fields", key)
+                if not key_in_context(k, self.context):
+                    logging.warning("Did not find in OMERO context: %s. Add it to the spreadsheet of new fields", k)
                 if k.startswith("omero:"):
                     key = URIRef(f"{self.OMERO}{k[6:]}")
                 else:
