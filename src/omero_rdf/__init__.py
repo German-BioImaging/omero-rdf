@@ -144,8 +144,8 @@ class Handler:
     url = "https://gist.githubusercontent.com/stefanches7/5b3402331d901bb3c3384bac047c4ac2/raw/cd45da585bfa630a56ef55670d2b5da2be50ff76/context.ld.json"
     context = fetch_jsonld_context(url)
 
-    OME = "http://www.openmicroscopy.org/rdf/2016-06/ome_core/"
-    OMERO = "http://www.openmicroscopy.org/TBD/omero/"
+    OME = "ome:"
+    OMERO = "ome:"
 
     def __init__(
         self,
@@ -167,12 +167,8 @@ class Handler:
             self.graph = Graph()
             self.graph.bind("wd", "http://www.wikidata.org/prop/direct/")
             self.graph.bind(
-                "ome", "http://www.openmicroscopy.org/rdf/2016-06/ome_core/"
+                "ome", "https://gist.githubusercontent.com/stefanches7/5b3402331d901bb3c3384bac047c4ac2/raw/cd45da585bfa630a56ef55670d2b5da2be50ff76/context.ld.json"
             )
-            self.graph.bind(
-                "ome-xml", "http://www.openmicroscopy.org/Schemas/OME/2016-06#"
-            )  # FIXME
-            self.graph.bind("omero", "http://www.openmicroscopy.org/TBD/omero/")
             # self.graph.bind("xs", XMLSCHEMA)
             # TODO: Allow handlers to register namespaces
 
