@@ -106,14 +106,14 @@ def fetch_jsonld_context(url: str) -> Optional[Dict[str, Any]]:
         if '@context' in data:
             return data['@context']
         else:
-            print(f"No @context found in {url}")
+            logging.warning(f"No @context found in {url}")
             return None
             
     except requests.RequestException as e:
-        print(f"Network error: {e}")
+        logging.warning(f"Network error: {e}")
         return None
     except json.JSONDecodeError as e:
-        print(f"JSON parsing error: {e}")
+        logging.warning(f"JSON parsing error: {e}")
         return None
 
 def key_in_context(key: str, context: Dict[str, Any]):
