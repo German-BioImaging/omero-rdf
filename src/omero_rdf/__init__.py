@@ -33,6 +33,11 @@ from omero_marshal import get_encoder
 from rdflib import BNode, Graph, Literal, URIRef
 from rdflib.namespace import DCTERMS, RDF
 
+
+import requests
+import json
+from typing import Dict, Any, Optional
+
 HELP = """A plugin for exporting rdf from OMERO
 
 omero-rdf creates a stream of RDF triples from the starting object that
@@ -78,6 +83,55 @@ def gateway_required(func: Callable) -> Callable:  # type: ignore
     return _wrapper
 
 
+
+def fetch_jsonld_context(url: str) -> Optional[Dict[str, Any]]:
+    """
+    Fetch JSON-LD context from a URL.
+    
+    Args:
+        url: The URL of the JSON-LD document
+        
+    Returns:
+        The @context object or None if not found/error
+    """
+    try:
+        # Make HTTP request
+        response = requests.get(url, headers={'Accept': 'application/ld+json'})
+        response.raise_for_status()
+        
+        # Parse JSON
+        data = response.json()
+        
+        # Extract @context
+        if '@context' in data:
+            return data['@context']
+        else:
+            print(f"No @context found in {url}")
+            return None
+            
+    except requests.RequestException as e:
+        print(f"Network error: {e}")
+        return None
+    except json.JSONDecodeError as e:
+        print(f"JSON parsing error: {e}")
+        return None
+
+def key_in_context(key: str, context: Dict[str, Any]):
+    """
+    Check if a key is in the context.
+    
+    Args:
+        key: The key to check
+        context: The JSON-LD context
+        
+    Returns:
+        True if the key is in the context, False otherwise
+    """
+    if key.startswith("omero:"):
+        return key[6:] in context
+    else:
+        return key in context
+
 class Handler:
     """
     Instances are used to generate triples.
@@ -86,6 +140,9 @@ class Handler:
         TBD
 
     """
+    
+    url = "https://gist.githubusercontent.com/stefanches7/5b3402331d901bb3c3384bac047c4ac2/raw/cd45da585bfa630a56ef55670d2b5da2be50ff76/context.ld.json"
+    context = fetch_jsonld_context(url)
 
     OME = "http://www.openmicroscopy.org/rdf/2016-06/ome_core/"
     OMERO = "http://www.openmicroscopy.org/TBD/omero/"
@@ -150,6 +207,8 @@ class Handler:
             # Types that we want to omit fo
             return None
         else:
+            if not key_in_context(key, self.context):
+                logging.warning("Did not find in OMERO context: %s. Add it to the spreadsheet of new fields", key)
             if key.startswith("omero:"):
                 return URIRef(f"{self.OMERO}{key[6:]}")
             else:
@@ -261,7 +320,8 @@ class Handler:
                 # Types that we want to omit for now
                 pass
             else:
-
+                if not key_in_context(key, self.context):
+                    logging.warning("Did not find in OMERO context: %s. Add it to the spreadsheet of new fields", key)
                 if k.startswith("omero:"):
                     key = URIRef(f"{self.OMERO}{k[6:]}")
                 else:
