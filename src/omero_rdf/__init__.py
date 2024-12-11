@@ -19,6 +19,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 
+import contextlib
 import sys
 import json
 import logging
@@ -60,6 +61,32 @@ Subj = Union[BNode, URIRef]
 Obj = Union[BNode, Literal, URIRef]
 Triple = Tuple[Subj, URIRef, Obj]
 Handlers = List[Callable[[URIRef, URIRef, Data], Generator[Triple, None, bool]]]
+
+
+@contextlib.contextmanager
+def open_with_default(filename=None, filehandle=sys.stdout):
+    """
+    Open a file for writing if given and close on completion.
+
+    No closing will happen if the file name is "-" since stdout will be used.
+    If no filehandle is given, stdout will also be used.
+    Otherwise return the given filehandle will be used.
+    """
+    close = False
+    if filename:
+        if filename == "-":
+            fh = sys.stdout
+        else:
+            fh = open(filename, "w")
+            close = True
+    else:
+        fh = filehandle
+
+    try:
+        yield fh
+    finally:
+        if close:
+            fh.close()
 
 
 def gateway_required(func: Callable) -> Callable:  # type: ignore
@@ -548,24 +575,18 @@ class RdfControl(BaseControl):
         else:
             args.format = format_mapping()[args.format]
 
-        fh = sys.stdout
-        if args.file:
-            fh = open(args.file, 'w')
-
-        handler = Handler(
-            self.gateway,
-            formatter=args.format,
-            use_ellide=args.ellide,
-            trim_whitespace=args.trim_whitespace,
-            first_handler_wins=args.first_handler_wins,
-            descent=args.descent,
-            filehandle=fh,
-        )
-        self.descend(self.gateway, args.target, handler)
-        handler.close()
-
-        if fh is not sys.stdout:
-            fh.close()
+        with open_with_default(args.file) as fh:
+            handler = Handler(
+                self.gateway,
+                formatter=args.format,
+                use_ellide=args.ellide,
+                trim_whitespace=args.trim_whitespace,
+                first_handler_wins=args.first_handler_wins,
+                descent=args.descent,
+                filehandle=fh,
+            )
+            self.descend(self.gateway, args.target, handler)
+            handler.close()
 
     # TODO: move to handler?
     def descend(
