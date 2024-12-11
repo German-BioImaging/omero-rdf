@@ -20,6 +20,7 @@
 
 
 import contextlib
+import gzip
 import sys
 import json
 import logging
@@ -46,11 +47,15 @@ it is given. This may be one of: Image, Dataset, Project, Plate, and Screen.
 Examples:
 
   omero rdf Image:123                # Streams each triple found in N-Triples format
+
   omero rdf -F=jsonld Image:123      # Collects all triples and prints formatted output
   omero rdf -S=flat Project:123      # Do not recurse into containers ("flat-strategy")
   omero rdf --trim-whitespace ...    # Strip leading and trailing whitespace from text
   omero rdf --first-handler-wins ... # First mapping wins; others will be ignored
+
+  omero rdf --file - ...             # Write RDF triples to stdout
   omero rdf --file output.nt ...     # Write RDF triples to the specified file
+  omero rdf --file output.nt.gz      # Write RDF triples to the specified file, gzipping
 
 """
 
@@ -77,7 +82,10 @@ def open_with_default(filename=None, filehandle=sys.stdout):
         if filename == "-":
             fh = sys.stdout
         else:
-            fh = open(filename, "w")
+            if filename.endswith(".gz"):
+                fh = gzip.open(filename, "wt")
+            else:
+                fh = open(filename, "w")
             close = True
     else:
         fh = filehandle
