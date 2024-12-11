@@ -19,6 +19,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 
+import sys
 import json
 import logging
 from argparse import Namespace
@@ -36,7 +37,7 @@ from rdflib import BNode, Graph, Literal, URIRef
 from rdflib.namespace import DCTERMS, RDF
 from rdflib_pyld_compat import pyld_jsonld_from_rdflib_graph
 
-HELP = """A plugin for exporting rdf from OMERO
+HELP = """A plugin for exporting RDF from OMERO
 
 omero-rdf creates a stream of RDF triples from the starting object that
 it is given. This may be one of: Image, Dataset, Project, Plate, and Screen.
@@ -48,6 +49,7 @@ Examples:
   omero rdf -S=flat Project:123      # Do not recurse into containers ("flat-strategy")
   omero rdf --trim-whitespace ...    # Strip leading and trailing whitespace from text
   omero rdf --first-handler-wins ... # First mapping wins; others will be ignored
+  omero rdf --file output.nt ...     # Write RDF triples to the specified file
 
 """
 
@@ -256,6 +258,7 @@ class Handler:
         use_ellide=False,
         first_handler_wins=False,
         descent="recursive",
+        filehandle=sys.stdout,
     ) -> None:
         self.gateway = gateway
         self.cache: Set[URIRef] = set()
@@ -268,6 +271,7 @@ class Handler:
         self._descent_level = 0
         self.annotation_handlers = self.load_handlers()
         self.info = self.load_server()
+        self.filehandle = filehandle
 
     def skip_descent(self):
         return self.descent != "recursive" and self._descent_level > 0
@@ -375,13 +379,13 @@ class Handler:
 
     def emit(self, triple: Triple):
         if self.formatter.streaming:
-            print(self.formatter.serialize_triple(triple))
+            print(self.formatter.serialize_triple(triple), file=self.filehandle)
         else:
             self.formatter.add(triple)
 
     def close(self):
         if not self.formatter.streaming:
-            print(self.formatter.serialize_graph())
+            print(self.formatter.serialize_graph(), file=self.filehandle)
 
     def rdf(
         self,
@@ -527,6 +531,12 @@ class RdfControl(BaseControl):
             default=False,
             help="Remove leading and trailing whitespace from literals",
         )
+        parser.add_argument(
+            "--file",
+            type=str,
+            default=None,
+            help="Write RDF triples to the specified file",
+        )
         parser.set_defaults(func=self.action)
 
     @gateway_required
@@ -538,6 +548,10 @@ class RdfControl(BaseControl):
         else:
             args.format = format_mapping()[args.format]
 
+        fh = sys.stdout
+        if args.file:
+            fh = open(args.file, 'w')
+
         handler = Handler(
             self.gateway,
             formatter=args.format,
@@ -545,9 +559,13 @@ class RdfControl(BaseControl):
             trim_whitespace=args.trim_whitespace,
             first_handler_wins=args.first_handler_wins,
             descent=args.descent,
+            filehandle=fh,
         )
         self.descend(self.gateway, args.target, handler)
         handler.close()
+
+        if fh is not sys.stdout:
+            fh.close()
 
     # TODO: move to handler?
     def descend(
