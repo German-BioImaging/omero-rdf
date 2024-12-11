@@ -19,8 +19,7 @@ requires-python = ">3.8"
 
 dependencies = [
     "omero-py>=5.8",
-    "entrypoints",
-    "types-entrypoints",
+    "importlib-metadata",
     "future",
     "rdflib",
     "pyld",

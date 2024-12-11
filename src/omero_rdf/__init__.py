@@ -28,7 +28,7 @@ from argparse import Namespace
 from functools import wraps
 from typing import Any, Callable, Dict, Generator, List, Optional, Set, Tuple, Union
 
-import entrypoints
+from importlib.metadata import entry_points
 from omero.cli import BaseControl, Parser, ProxyStringType
 from omero.gateway import BlitzGateway, BlitzObjectWrapper
 from omero.model import Dataset, Image, IObject, Plate, Project, Screen
@@ -318,7 +318,7 @@ class Handler:
 
     def load_handlers(self) -> Handlers:
         annotation_handlers: Handlers = []
-        for ep in entrypoints.get_group_all("omero_rdf.annotation_handler"):
+        for ep in entry_points(group='omero_rdf.annotation_handler'):
             ah_loader = ep.load()
             annotation_handlers.append(ah_loader(self))
         # We know there are some built in handlers
