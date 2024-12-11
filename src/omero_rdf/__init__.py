@@ -69,7 +69,7 @@ Handlers = List[Callable[[URIRef, URIRef, Data], Generator[Triple, None, bool]]]
 
 
 @contextlib.contextmanager
-def open_with_default(filename=None, filehandle=sys.stdout):
+def open_with_default(filename=None, filehandle=None):
     """
     Open a file for writing if given and close on completion.
 
@@ -88,6 +88,8 @@ def open_with_default(filename=None, filehandle=sys.stdout):
                 fh = open(filename, "w")
             close = True
     else:
+        if filehandle is None:
+            filehandle = sys.stdout
         fh = filehandle
 
     try:
