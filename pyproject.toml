@@ -25,9 +25,10 @@ dependencies = [
     "rdflib",
     "pyld",
     "rdflib-pyld-compat",
-    "omero-marshal",
+    "omero-marshal @ git+https://github.com/joshmoore/omero-marshal#new-context",
     "wikidataintegrator",
-    "packaging"
+    "packaging",
+    "setuptools",
 ]
 
 classifiers = [
