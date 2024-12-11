@@ -26,7 +26,7 @@ import json
 import logging
 from argparse import Namespace
 from functools import wraps
-from typing import Any, Callable, Dict, Generator, List, Optional, Set, Tuple, Union
+from typing import Any, Callable, Dict, Generator, List, Set, Tuple, Union
 
 from importlib.metadata import entry_points
 from omero.cli import BaseControl, Parser, ProxyStringType
@@ -36,7 +36,7 @@ from omero.sys import ParametersI
 from omero_marshal import get_encoder
 from pyld import jsonld
 from rdflib import BNode, Graph, Literal, URIRef
-from rdflib.namespace import DCTERMS, RDF
+from rdflib.namespace import DCTERMS, Namespace as NS, RDF
 from rdflib_pyld_compat import pyld_jsonld_from_rdflib_graph
 
 HELP = """A plugin for exporting RDF from OMERO
@@ -66,6 +66,11 @@ Subj = Union[BNode, URIRef]
 Obj = Union[BNode, Literal, URIRef]
 Triple = Tuple[Subj, URIRef, Obj]
 Handlers = List[Callable[[URIRef, URIRef, Data], Generator[Triple, None, bool]]]
+
+# NAMESPACE DEFINITIONS
+
+NS_OME = NS("http://www.openmicroscopy.org/Schemas/OME/2016-06#")
+NS_OMERO = NS("http://www.openmicroscopy.org/Schemas/OMERO/2016-06#")
 
 
 @contextlib.contextmanager
@@ -184,13 +189,9 @@ class NonStreamingFormat(Format):
         super().__init__()
         self.streaming = False
         self.graph = Graph()
-        self.graph.bind("wd", "http://www.wikidata.org/prop/direct/")
-        self.graph.bind("ome", "http://www.openmicroscopy.org/rdf/2016-06/ome_core/")
-        self.graph.bind(
-            "ome-xml", "http://www.openmicroscopy.org/Schemas/OME/2016-06#"
-        )  # FIXME
-        self.graph.bind("omero", "http://www.openmicroscopy.org/TBD/omero/")
-        # self.graph.bind("xs", XMLSCHEMA)
+        self.graph.bind("", NS_OME)
+        self.graph.bind("omero", NS_OMERO)
+        self.graph.bind("dcterms", DCTERMS)
         # TODO: Allow handlers to register namespaces
 
     def add(self, triple):
@@ -215,11 +216,9 @@ class JSONLDFormat(NonStreamingFormat):
     def context(self):
         # TODO: allow handlers to add to this
         return {
-            "@wd": "http://www.wikidata.org/prop/direct/",
-            "@ome": "http://www.openmicroscopy.org/rdf/2016-06/ome_core/",
-            "@ome-xml": "http://www.openmicroscopy.org/Schemas/OME/2016-06#",
-            "@omero": "http://www.openmicroscopy.org/TBD/omero/",
-            "@idr": "https://idr.openmicroscopy.org/",
+            "@vocab": str(NS_OME),
+            "omero": str(NS_OMERO),
+            "dcterms": str(DCTERMS),
         }
 
     def serialize_graph(self) -> None:
@@ -284,9 +283,6 @@ class Handler:
 
     """
 
-    OME = "http://www.openmicroscopy.org/rdf/2016-06/ome_core/"
-    OMERO = "http://www.openmicroscopy.org/TBD/omero/"
-
     def __init__(
         self,
         gateway: BlitzGateway,
@@ -341,16 +337,6 @@ class Handler:
         finally:
             self.bnode += 1
 
-    def get_key(self, key: str) -> Optional[URIRef]:
-        if key in ("@type", "@id", "omero:details", "Annotations"):
-            # Types that we want to omit fo
-            return None
-        else:
-            if key.startswith("omero:"):
-                return URIRef(f"{self.OMERO}{key[6:]}")
-            else:
-                return URIRef(f"{self.OME}{key}")
-
     def get_type(self, data: Data) -> str:
         return data.get("@type", "UNKNOWN").split("#")[-1]
 
@@ -384,7 +370,8 @@ class Handler:
         if encoder is None:
             raise Exception(f"unknown: {c}")
         else:
-            data = encoder.encode(o)
+            # TODO: could potentially do this once for the top object
+            data = encoder.encode(o, include_context=False)
             return self.handle(data)
 
     def handle(self, data: Data) -> URIRef:
@@ -457,11 +444,11 @@ class Handler:
                 # Types that we want to omit for now
                 pass
             else:
-
+                # Refactor back to get_key? TODO
                 if k.startswith("omero:"):
-                    key = URIRef(f"{self.OMERO}{k[6:]}")
+                    key = NS_OMERO[k[6:]]
                 else:
-                    key = URIRef(f"{self.OME}{k}")
+                    key = NS_OME[k]
 
                 if isinstance(v, dict):
                     # This is an object
@@ -483,15 +470,15 @@ class Handler:
                         elif isinstance(item, list) and len(item) == 2:
                             bnode = self.get_bnode()
                             # TODO: KVPs need ordering info, also no use of "key" here.
-                            yield (_id, URIRef(f"{self.OME}Map"), bnode)
+                            yield (_id, NS_OME["Map"], bnode)
                             yield (
                                 bnode,
-                                URIRef(f"{self.OME}Key"),
+                                NS_OME["Key"],
                                 self.literal(item[0]),
                             )
                             yield (
                                 bnode,
-                                URIRef(f"{self.OME}Value"),
+                                NS_OME["Value"],
                                 self.literal(item[1]),
                             )
                         else:
@@ -505,15 +492,13 @@ class Handler:
 
             handled = False
             for ah in self.annotation_handlers:
-                handled = yield from ah(
-                    _id, URIRef(f"{self.OME}annotation"), annotation
-                )
+                handled = yield from ah(_id, NS_OME["annotation"], annotation)
                 if handled:
                     break
 
             if not handled:  # TODO: could move to a default handler
                 aid = self.get_identity("AnnotationTBD", annotation["@id"])
-                yield (_id, URIRef(f"{self.OME}annotation"), aid)
+                yield (_id, NS_OME["annotation"], aid)
                 yield from self.rdf(aid, annotation)
 
     def yield_object_with_id(self, _id, key, v):
