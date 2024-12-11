@@ -322,8 +322,6 @@ class Handler:
         for ep in eps.get("omero_rdf.annotation_handler", []):
             ah_loader = ep.load()
             annotation_handlers.append(ah_loader(self))
-        # We know there are some built in handlers
-        assert len(annotation_handlers) >= 1
         return annotation_handlers
 
     def load_server(self) -> Any:
