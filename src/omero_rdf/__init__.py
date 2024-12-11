@@ -318,7 +318,8 @@ class Handler:
 
     def load_handlers(self) -> Handlers:
         annotation_handlers: Handlers = []
-        for ep in entry_points(group='omero_rdf.annotation_handler'):
+        eps = entry_points()
+        for ep in eps.select(group='omero_rdf.annotation_handler'):
             ah_loader = ep.load()
             annotation_handlers.append(ah_loader(self))
         # We know there are some built in handlers
