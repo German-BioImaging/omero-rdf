@@ -13,7 +13,7 @@ version = {attr = "omero_rdf.__version__"}
 name = "omero-rdf"
 readme = "README.rst"
 dynamic = ["version"]
-description="A plugin for exporting rdf from OMERO"
+description="A plugin for exporting RDF from OMERO"
 
 requires-python = ">3.8"
 
@@ -25,7 +25,6 @@ dependencies = [
     "pyld",
     "rdflib-pyld-compat",
     "omero-marshal",
-    "wikidataintegrator",
     "packaging"
 ]
 
