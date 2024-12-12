@@ -7,20 +7,20 @@
 omero-rdf
 =========
 
-A plugin for exporting rdf from OMERO
+A plugin for exporting RDF from OMERO
 
 
 Requirements
 ============
 
 * OMERO 5.6.0 or newer
-* Python 3.6 or newer
+* Python 3.8 or newer
 
 
 Installing from PyPI
 ====================
 
-This section assumes that an OMERO.py is already installed.
+This section assumes that an `OMERO.py <https://github.com/ome/omero-py>`_ is already installed.
 
 Install the command-line tool using `pip <https://pip.pypa.io/en/stable/>`_:
 
@@ -52,4 +52,4 @@ licensed under the terms of the GNU General Public License (GPL) v2 or later.
 Copyright
 ---------
 
-2022, German BioImaging
+2022-2024, German BioImaging
