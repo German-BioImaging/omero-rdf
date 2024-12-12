@@ -19,8 +19,7 @@ requires-python = ">3.8"
 
 dependencies = [
     "omero-py>=5.8",
-    "entrypoints",
-    "types-entrypoints",
+    "importlib-metadata",
     "future",
     "rdflib",
     "pyld",
@@ -62,8 +61,9 @@ tests = [
 Repository = "https://github.com/German-BioImaging/omero-rdf"
 Changelog = "https://github.com/German-BioImaging/omero-rdf/blob/master/CHANGES.txt"
 
-[project.entry-points."omero_rdf.annotation_handler"]
-idr_annotations = "omero_rdf.idr_annotations:IDRAnnotationHandler"
+# Subplugins should register there entrypoints like this:
+# [project.entry-points."omero_rdf.annotation_handler"]
+# idr_annotations = "omero_rdf_wikidata.idr_annotations:IDRAnnotationHandler"
 
 [tool.setuptools]
 package-dir = {""= "src"}
