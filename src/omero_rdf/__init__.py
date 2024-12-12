@@ -250,13 +250,13 @@ class ROCrateFormat(JSONLDFormat):
             {
                 "@id": "./",
                 "@type": "Dataset",
-                "rocrate:license": "https://creativecommons.org/licenses/by/4.0/",
+                "license": "https://creativecommons.org/licenses/by/4.0/",
             },
             {
                 "@id": "ro-crate-metadata.json",
                 "@type": "CreativeWork",
-                "rocrate:conformsTo": {"@id": "https://w3id.org/ro/crate/1.1"},
-                "rocrate:about": {"@id": "./"},
+                "conformsTo": {"@id": "https://w3id.org/ro/crate/1.1"},
+                "about": {"@id": "./"},
             },
         ]
         return json.dumps(j, indent=4)
