@@ -179,9 +179,9 @@ class NTriplesFormat(StreamingFormat):
         super().__init__()
 
     def serialize_triple(self, triple):
-        s, p, o = triple
-        escaped = o.n3().encode("unicode_escape").decode("utf-8")
-        return f"""{s.n3()}\t{p.n3()}\t{escaped} ."""
+        graph = Graph()
+        graph.add(triple)
+        return graph.serialize(format="nt11")
 
 
 class NonStreamingFormat(Format):
