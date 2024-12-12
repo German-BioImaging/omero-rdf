@@ -439,7 +439,12 @@ class Handler:
         for k, v in sorted(data.items()):
 
             if k == "@type":
-                yield (_id, RDF.type, URIRef(v))
+                if v.startswith("http"):
+                    yield (_id, RDF.type, URIRef(v))
+                elif v.startswith("omero:"):
+                    yield (_id, RDF.type, NS_OMERO[v])
+                else:
+                    yield (_id, RDF.type, NS_OME[v])
             elif k in ("@id", "omero:details", "Annotations"):
                 # Types that we want to omit for now
                 pass
