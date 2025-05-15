@@ -394,7 +394,6 @@ class Handler:
         Returns the id for the data object itself
         """
         # TODO: Add quad representation as an option
-        output: Triple
 
         str_id = data.get("@id")
         if not str_id:
@@ -674,15 +673,18 @@ class RdfControl(BaseControl):
         elif isinstance(target, Image):
             img = self._lookup(gateway, "Image", target.id)
             imgid = handler(img)
-            pixid = handler(img.getPrimaryPixels())
-            handler.emit((pixid, DCTERMS.isPartOf, imgid))
-            handler.emit((imgid, DCTERMS.hasPart, pixid))
+            if img.getPrimaryPixels() is not None:
+                pixid = handler(img.getPrimaryPixels())
+                handler.emit((pixid, DCTERMS.isPartOf, imgid))
+                handler.emit((imgid, DCTERMS.hasPart, pixid))
             for annotation in img.listAnnotations(None):
                 img._loadAnnotationLinks()
                 annid = handler(annotation)
                 handler.emit((annid, DCTERMS.isPartOf, imgid))
             for roi in self._get_rois(gateway, img):
-                handler(roi)
+                roiid = handler(roi)
+                handler.emit((roiid, DCTERMS.isPartOf, pixid))
+                handler.emit((pixid, DCTERMS.hasPart, roiid))
             return imgid
 
         else:

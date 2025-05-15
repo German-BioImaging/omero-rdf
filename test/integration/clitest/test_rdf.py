@@ -21,6 +21,10 @@
 
 from omero.testlib.cli import CLITest
 from omero_rdf import RdfControl
+from omero.model import RoiI
+
+from rdflib import Graph, Namespace, RDF
+from rdflib.namespace import DCTERMS
 
 
 class TestRdf(CLITest):
@@ -41,3 +45,34 @@ class TestRdf(CLITest):
         self.args += [obj_arg]
         out = self.rdf(capfd)
         assert out
+
+    def test_rois(self, capfd):
+
+        update = self.client.sf.getUpdateService()
+
+        # Setup a test image with a roi
+        pix = self.create_pixels()
+        img = pix.image
+        roi = RoiI()
+        img.addRoi(roi)
+        img = update.saveAndReturnObject(img)
+
+        # Export the test image
+        object_type = "Image"
+        obj_arg = f"{object_type}:{img.id.val}"
+        self.args += ["-Fturtle", obj_arg]
+        out = self.rdf(capfd)
+
+        # Check that it contains the roi linked to the image (issue#42)
+        g = Graph()
+        g.parse(data=out, format="ttl")
+
+        xml = Namespace("http://www.openmicroscopy.org/Schemas/OME/2016-06#")
+
+        found = False
+        for s, p, o in g.triples((None, DCTERMS.isPartOf, None)):
+            print(s, p, o)
+            if (s, RDF.type, xml.ROI) in g and (o, RDF.type, xml.Pixels) in g:
+                found = True
+
+        assert found, "no link between pixels and ROI:" + g.serialize()
