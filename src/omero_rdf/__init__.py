@@ -681,6 +681,8 @@ class RdfControl(BaseControl):
                 img._loadAnnotationLinks()
                 annid = handler(annotation)
                 handler.emit((annid, DCTERMS.isPartOf, imgid))
+            for ch in self._get_channels(gateway, img):
+                handler(ch)
             for roi in self._get_rois(gateway, img):
                 roiid = handler(roi)
                 handler.emit((roiid, DCTERMS.isPartOf, pixid))
@@ -689,6 +691,19 @@ class RdfControl(BaseControl):
 
         else:
             self.ctx.die(111, "unknown target: %s" % target.__class__.__name__)
+
+    def _get_channels(self, gateway, img):
+        params = ParametersI()
+        params.addId(img.id)
+        query = """select p from Pixels p left outer
+                 join fetch p.channels as c
+                 join fetch c.logicalChannel as lc
+                 join fetch p.image as i where i.id = :id"""
+
+        for pix in gateway.getQueryService().findAllByQuery(
+            query, params, {"omero.group": str(img.details.group.id.val)}
+        ):
+            yield from pix._getChannels()
 
     def _get_rois(self, gateway, img):
         params = ParametersI()
