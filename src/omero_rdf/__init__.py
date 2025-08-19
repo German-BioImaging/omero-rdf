@@ -412,6 +412,15 @@ class Handler:
 
         return _id
 
+    def contains(self, parent, child):
+        """
+        Use emit to generate isPartOf and hasPart triples
+
+        TODO: add an option to only choose one of the two directions.
+        """
+        self.emit((child, DCTERMS.isPartOf, parent))
+        self.emit((parent, DCTERMS.hasPart, child))
+
     def emit(self, triple: Triple):
         if self.formatter.streaming:
             print(self.formatter.serialize_triple(triple), file=self.filehandle)
@@ -623,11 +632,10 @@ class RdfControl(BaseControl):
             scrid = handler(scr)
             for plate in scr.listChildren():
                 pltid = self.descend(gateway, plate._obj, handler)
-                handler.emit((pltid, DCTERMS.isPartOf, scrid))
-                handler.emit((scrid, DCTERMS.hasPart, pltid))
+                handler.contains(scrid, pltid)
             for annotation in scr.listAnnotations(None):
                 annid = handler(annotation)
-                handler.emit((annid, DCTERMS.isPartOf, scrid))
+                handler.contains(scrid, annid)
             return scrid
 
         elif isinstance(target, Plate):
@@ -635,15 +643,14 @@ class RdfControl(BaseControl):
             pltid = handler(plt)
             for annotation in plt.listAnnotations(None):
                 annid = handler(annotation)
-                handler.emit((annid, DCTERMS.isPartOf, pltid))
+                handler.contains(pltid, annid)
             for well in plt.listChildren():
                 wid = handler(well)  # No descend
-                handler.emit((wid, DCTERMS.isPartOf, pltid))
+                handler.contains(pltid, wid)
                 for idx in range(0, well.countWellSample()):
                     img = well.getImage(idx)
                     imgid = self.descend(gateway, img._obj, handler)
-                    handler.emit((imgid, DCTERMS.isPartOf, wid))
-                    handler.emit((wid, DCTERMS.hasPart, imgid))
+                    handler.contains(wid, imgid)
             return pltid
 
         elif isinstance(target, Project):
@@ -651,11 +658,10 @@ class RdfControl(BaseControl):
             prjid = handler(prj)
             for annotation in prj.listAnnotations(None):
                 annid = handler(annotation)
-                handler.emit((annid, DCTERMS.isPartOf, prjid))
+                handler.contains(prjid, annid)
             for ds in prj.listChildren():
                 dsid = self.descend(gateway, ds._obj, handler)
-                handler.emit((dsid, DCTERMS.isPartOf, prjid))
-                handler.emit((prjid, DCTERMS.hasPart, dsid))
+                handler.contains(prjid, dsid)
             return prjid
 
         elif isinstance(target, Dataset):
@@ -663,11 +669,10 @@ class RdfControl(BaseControl):
             dsid = handler(ds)
             for annotation in ds.listAnnotations(None):
                 annid = handler(annotation)
-                handler.emit((annid, DCTERMS.isPartOf, dsid))
+                handler.contains(dsid, annid)
             for img in ds.listChildren():
                 imgid = self.descend(gateway, img._obj, handler)
-                handler.emit((imgid, DCTERMS.isPartOf, dsid))
-                handler.emit((dsid, DCTERMS.hasPart, imgid))
+                handler.contains(dsid, imgid)
             return dsid
 
         elif isinstance(target, Image):
@@ -675,16 +680,14 @@ class RdfControl(BaseControl):
             imgid = handler(img)
             if img.getPrimaryPixels() is not None:
                 pixid = handler(img.getPrimaryPixels())
-                handler.emit((pixid, DCTERMS.isPartOf, imgid))
-                handler.emit((imgid, DCTERMS.hasPart, pixid))
+                handler.contains(imgid, pixid)
             for annotation in img.listAnnotations(None):
                 img._loadAnnotationLinks()
                 annid = handler(annotation)
-                handler.emit((annid, DCTERMS.isPartOf, imgid))
+                handler.contains(imgid, annid)
             for roi in self._get_rois(gateway, img):
                 roiid = handler(roi)
-                handler.emit((roiid, DCTERMS.isPartOf, pixid))
-                handler.emit((pixid, DCTERMS.hasPart, roiid))
+                handler.contains(pixid, roiid)
             return imgid
 
         else:
