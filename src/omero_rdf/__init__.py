@@ -391,10 +391,16 @@ class Handler:
         """
         Loop through all annotations and handle them individually.
         """
-        for annotation in obj.listAnnotations(None):
-            obj._loadAnnotationLinks()
-            annid = self(annotation)
-            self.contains(objid, annid)
+        if isinstance(obj, IObject):
+            # Not a wrapper object
+            for annotation in obj.linkedAnnotationList():
+                annid = self(annotation)
+                self.contains(objid, annid)
+        else:
+            for annotation in obj.listAnnotations(None):
+                obj._loadAnnotationLinks()
+                annid = self(annotation)
+                self.contains(objid, annid)
 
     def handle(self, data: Data) -> URIRef:
         """
@@ -687,6 +693,10 @@ class RdfControl(BaseControl):
                 roiid = handler(roi)
                 handler.annotations(roi, roiid)
                 handler.contains(pixid, roiid)
+                for shape in roi.iterateShapes():
+                    shapeid = handler(shape)
+                    handler.annotations(shape, shapeid)
+                    handler.contains(roiid, shapeid)
             return imgid
 
         else:

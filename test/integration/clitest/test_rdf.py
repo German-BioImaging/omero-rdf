@@ -21,7 +21,8 @@
 
 from omero.testlib.cli import CLITest
 from omero_rdf import RdfControl
-from omero.model import RoiI
+from omero.model import LabelI, RoiI
+from omero.rtypes import rstring
 
 from rdflib import Graph, Namespace, RDF
 from rdflib.namespace import DCTERMS
@@ -54,6 +55,10 @@ class TestRdf(CLITest):
         pix = self.create_pixels()
         img = pix.image
         roi = RoiI()
+        roi.setDescription(rstring("please check me"))
+        label = LabelI()
+        label.setTextValue(rstring("this is the label"))
+        roi.addShape(label)
         img.addRoi(roi)
         img = update.saveAndReturnObject(img)
 
