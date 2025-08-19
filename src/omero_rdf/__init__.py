@@ -387,6 +387,15 @@ class Handler:
             data = encoder.encode(o)
             return self.handle(data)
 
+    def annotations(self, obj, objid):
+        """
+        Loop through all annotations and handle them individually.
+        """
+        for annotation in obj.listAnnotations(None):
+            obj._loadAnnotationLinks()
+            annid = self(annotation)
+            self.contains(objid, annid)
+
     def handle(self, data: Data) -> URIRef:
         """
         Parses the data object into RDF triples.
@@ -633,17 +642,13 @@ class RdfControl(BaseControl):
             for plate in scr.listChildren():
                 pltid = self.descend(gateway, plate._obj, handler)
                 handler.contains(scrid, pltid)
-            for annotation in scr.listAnnotations(None):
-                annid = handler(annotation)
-                handler.contains(scrid, annid)
+            handler.annotations(scr, scrid)
             return scrid
 
         elif isinstance(target, Plate):
             plt = self._lookup(gateway, "Plate", target.id)
             pltid = handler(plt)
-            for annotation in plt.listAnnotations(None):
-                annid = handler(annotation)
-                handler.contains(pltid, annid)
+            handler.annotations(plt, pltid)
             for well in plt.listChildren():
                 wid = handler(well)  # No descend
                 handler.contains(pltid, wid)
@@ -656,9 +661,7 @@ class RdfControl(BaseControl):
         elif isinstance(target, Project):
             prj = self._lookup(gateway, "Project", target.id)
             prjid = handler(prj)
-            for annotation in prj.listAnnotations(None):
-                annid = handler(annotation)
-                handler.contains(prjid, annid)
+            handler.annotations(prj, prjid)
             for ds in prj.listChildren():
                 dsid = self.descend(gateway, ds._obj, handler)
                 handler.contains(prjid, dsid)
@@ -667,9 +670,7 @@ class RdfControl(BaseControl):
         elif isinstance(target, Dataset):
             ds = self._lookup(gateway, "Dataset", target.id)
             dsid = handler(ds)
-            for annotation in ds.listAnnotations(None):
-                annid = handler(annotation)
-                handler.contains(dsid, annid)
+            handler.annotations(ds, dsid)
             for img in ds.listChildren():
                 imgid = self.descend(gateway, img._obj, handler)
                 handler.contains(dsid, imgid)
@@ -681,12 +682,10 @@ class RdfControl(BaseControl):
             if img.getPrimaryPixels() is not None:
                 pixid = handler(img.getPrimaryPixels())
                 handler.contains(imgid, pixid)
-            for annotation in img.listAnnotations(None):
-                img._loadAnnotationLinks()
-                annid = handler(annotation)
-                handler.contains(imgid, annid)
+            handler.annotations(img, imgid)
             for roi in self._get_rois(gateway, img):
                 roiid = handler(roi)
+                handler.annotations(roi, roiid)
                 handler.contains(pixid, roiid)
             return imgid
 
