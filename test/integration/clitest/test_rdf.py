@@ -21,7 +21,7 @@
 
 from omero.testlib.cli import CLITest
 from omero_rdf import RdfControl
-from omero.model import LabelI, RoiI
+from omero.model import LabelI, RoiI, CommentAnnotationI
 from omero.rtypes import rstring
 
 from rdflib import Graph, Namespace, RDF
@@ -54,10 +54,16 @@ class TestRdf(CLITest):
         # Setup a test image with a roi
         pix = self.create_pixels()
         img = pix.image
+        roi_ann = CommentAnnotationI()
+        roi_ann.setTextValue(rstring("my roi annotation"))
         roi = RoiI()
         roi.setDescription(rstring("please check me"))
+        roi.linkAnnotation(roi_ann)
+        label_ann = CommentAnnotationI()
+        label_ann.setTextValue(rstring("my label annotation"))
         label = LabelI()
         label.setTextValue(rstring("this is the label"))
+        label.linkAnnotation(label_ann)
         roi.addShape(label)
         img.addRoi(roi)
         img = update.saveAndReturnObject(img)
