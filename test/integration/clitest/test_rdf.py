@@ -21,9 +21,10 @@
 
 from omero.testlib.cli import CLITest
 from omero_rdf import RdfControl
-from omero.model import RoiI
+from omero.model import LabelI, RoiI, CommentAnnotationI
+from omero.rtypes import rstring
 
-from rdflib import Graph, Namespace, RDF
+from rdflib import Graph, Literal, Namespace, RDF
 from rdflib.namespace import DCTERMS
 
 
@@ -53,7 +54,17 @@ class TestRdf(CLITest):
         # Setup a test image with a roi
         pix = self.create_pixels()
         img = pix.image
+        roi_ann = CommentAnnotationI()
+        roi_ann.setTextValue(rstring("my roi annotation"))
         roi = RoiI()
+        roi.setDescription(rstring("please check me"))
+        roi.linkAnnotation(roi_ann)
+        label_ann = CommentAnnotationI()
+        label_ann.setTextValue(rstring("my label annotation"))
+        label = LabelI()
+        label.setTextValue(rstring("this is the label"))
+        label.linkAnnotation(label_ann)
+        roi.addShape(label)
         img.addRoi(roi)
         img = update.saveAndReturnObject(img)
 
@@ -68,11 +79,27 @@ class TestRdf(CLITest):
         g.parse(data=out, format="ttl")
 
         xml = Namespace("http://www.openmicroscopy.org/Schemas/OME/2016-06#")
+        self.assert_contained_type(g, xml.ROI, xml.Pixels)
+        for x in (
+            "my roi annotation",
+            "please check me",
+            "my label annotation",
+            "this is the label",
+        ):
+            self.assert_string_found(g, x)
 
+    def assert_contained_type(self, g, child_type, parent_type):
         found = False
         for s, p, o in g.triples((None, DCTERMS.isPartOf, None)):
-            print(s, p, o)
-            if (s, RDF.type, xml.ROI) in g and (o, RDF.type, xml.Pixels) in g:
+            if (s, RDF.type, child_type) in g and (o, RDF.type, parent_type) in g:
                 found = True
+                break
+        assert found, f"no link between {parent_type} and {child_type}:" + g.serialize()
 
-        assert found, "no link between pixels and ROI:" + g.serialize()
+    def assert_string_found(self, g, search_string):
+        found = False
+        search_literal = Literal(search_string)
+        for s, p, o in g.triples((None, None, search_literal)):
+            found = True
+            break
+        assert found, f"string not found '{search_string}':\n" + g.serialize()
