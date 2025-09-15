@@ -214,13 +214,15 @@ class JSONLDFormat(NonStreamingFormat):
 
     def context(self):
         # TODO: allow handlers to add to this
-        return {
+        return [
+           "https://w3id.org/ro/crate/1.1/context",
+          {
             "@wd": "http://www.wikidata.org/prop/direct/",
             "@ome": "http://www.openmicroscopy.org/rdf/2016-06/ome_core/",
             "@ome-xml": "http://www.openmicroscopy.org/Schemas/OME/2016-06#",
             "@omero": "http://www.openmicroscopy.org/TBD/omero/",
-            "@idr": "https://idr.openmicroscopy.org/",
-        }
+            "@idr": "https://idr.openmicroscopy.org/"
+          }]
 
     def serialize_graph(self) -> None:
         return self.graph.serialize(
@@ -236,7 +238,6 @@ class ROCrateFormat(JSONLDFormat):
 
     def context(self):
         ctx = super().context()
-        ctx["@rocrate"] = "https://w3id.org/ro/crate/1.1/context"
         return ctx
 
     def serialize_graph(self):
@@ -250,13 +251,13 @@ class ROCrateFormat(JSONLDFormat):
             {
                 "@id": "./",
                 "@type": "Dataset",
-                "rocrate:license": "https://creativecommons.org/licenses/by/4.0/",
+                "license": "https://creativecommons.org/licenses/by/4.0/",
             },
             {
                 "@id": "ro-crate-metadata.json",
                 "@type": "CreativeWork",
-                "rocrate:conformsTo": {"@id": "https://w3id.org/ro/crate/1.1"},
-                "rocrate:about": {"@id": "./"},
+                "conformsTo": {"@id": "https://w3id.org/ro/crate/1.1"},
+                "about": {"@id": "./"},
             },
         ]
         return json.dumps(j, indent=4)
