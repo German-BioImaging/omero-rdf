@@ -648,8 +648,8 @@ class RdfControl(BaseControl):
 
             if expected_exts and file_extension not in expected_exts:
                 logging.warning(
-                    f".{file_extension}' does not match format '{format_string}' (expected: %s)",
-                    ", ".join(f".{e}" for e in expected_exts),
+                    f".{file_extension}' does not match format '{format_string}'"
+                    f'(expected: {", ".join(f".{e}" for e in expected_exts)})',
                 )
 
             if not getattr(args, "yes", False):  # hidden --yes
