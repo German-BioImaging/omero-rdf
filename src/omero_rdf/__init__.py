@@ -271,6 +271,15 @@ def format_mapping():
     }
 
 
+def extension_mapping():
+    return {
+        "ntriples": ["nt"],
+        "turtle": ["ttl"],
+        "jsonld": ["jsonld", "json"],
+        "ro-crate": ["jsonld", "json"],
+    }
+
+
 def format_list():
     return format_mapping().keys()
 
@@ -601,6 +610,8 @@ class RdfControl(BaseControl):
     @gateway_required
     def action(self, args: Namespace) -> None:
 
+        self._validate_extensions(args)
+
         # Support hidden --pretty flag
         if args.pretty:
             args.format = TurtleFormat()
@@ -619,6 +630,34 @@ class RdfControl(BaseControl):
             )
             self.descend(self.gateway, args.target, handler)
             handler.close()
+
+    def _validate_extensions(self, args):
+        if args.file and args.file != "-":
+            filename = args.file.lower()
+
+            if filename.endswith(".gz"):
+                filename = filename.replace(".gz", "")
+            file_extension = filename.split(".")[-1]
+
+            # Support hidden --pretty flag
+            if args.pretty:
+                file_extension = "turtle"
+
+            format_string = str(args.format)
+            expected_exts = extension_mapping().get(format_string, [])
+
+            if expected_exts and file_extension not in expected_exts:
+                logging.warning(
+                    f".{file_extension}' does not match format '{format_string}' (expected: %s)",
+                    ", ".join(f".{e}" for e in expected_exts),
+                )
+
+            if not getattr(args, "yes", False):  # hidden --yes
+                self.ctx.out("This may cause incorrect output formatting.")
+                reply = input("Continue anyway? [y/N]: ").strip().lower()
+                if reply not in ("y", "yes"):
+                    self.ctx.err("Aborted by user.")
+                    return
 
     # TODO: move to handler?
     def descend(
