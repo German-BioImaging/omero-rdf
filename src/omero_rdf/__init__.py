@@ -19,13 +19,16 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 
+import contextlib
+import gzip
+import sys
 import json
 import logging
 from argparse import Namespace
 from functools import wraps
 from typing import Any, Callable, Dict, Generator, List, Optional, Set, Tuple, Union
 
-import entrypoints
+from importlib.metadata import entry_points
 from omero.cli import BaseControl, Parser, ProxyStringType
 from omero.gateway import BlitzGateway, BlitzObjectWrapper
 from omero.model import Dataset, Image, IObject, Plate, Project, Screen
@@ -36,7 +39,7 @@ from rdflib import BNode, Graph, Literal, URIRef
 from rdflib.namespace import DCTERMS, RDF
 from rdflib_pyld_compat import pyld_jsonld_from_rdflib_graph
 
-HELP = """A plugin for exporting rdf from OMERO
+HELP = """A plugin for exporting RDF from OMERO
 
 omero-rdf creates a stream of RDF triples from the starting object that
 it is given. This may be one of: Image, Dataset, Project, Plate, and Screen.
@@ -44,10 +47,15 @@ it is given. This may be one of: Image, Dataset, Project, Plate, and Screen.
 Examples:
 
   omero rdf Image:123                # Streams each triple found in N-Triples format
+
   omero rdf -F=jsonld Image:123      # Collects all triples and prints formatted output
   omero rdf -S=flat Project:123      # Do not recurse into containers ("flat-strategy")
   omero rdf --trim-whitespace ...    # Strip leading and trailing whitespace from text
   omero rdf --first-handler-wins ... # First mapping wins; others will be ignored
+
+  omero rdf --file - ...             # Write RDF triples to stdout
+  omero rdf --file output.nt ...     # Write RDF triples to the specified file
+  omero rdf --file output.nt.gz      # Write RDF triples to the specified file, gzipping
 
 """
 
@@ -58,6 +66,37 @@ Subj = Union[BNode, URIRef]
 Obj = Union[BNode, Literal, URIRef]
 Triple = Tuple[Subj, URIRef, Obj]
 Handlers = List[Callable[[URIRef, URIRef, Data], Generator[Triple, None, bool]]]
+
+
+@contextlib.contextmanager
+def open_with_default(filename=None, filehandle=None):
+    """
+    Open a file for writing if given and close on completion.
+
+    No closing will happen if the file name is "-" since stdout will be used.
+    If no filehandle is given, stdout will also be used.
+    Otherwise return the given filehandle will be used.
+    """
+    close = False
+    if filename:
+        if filename == "-":
+            fh = sys.stdout
+        else:
+            if filename.endswith(".gz"):
+                fh = gzip.open(filename, "wt")
+            else:
+                fh = open(filename, "w")
+            close = True
+    else:
+        if filehandle is None:
+            filehandle = sys.stdout
+        fh = filehandle
+
+    try:
+        yield fh
+    finally:
+        if close:
+            fh.close()
 
 
 def gateway_required(func: Callable) -> Callable:  # type: ignore
@@ -256,6 +295,7 @@ class Handler:
         use_ellide=False,
         first_handler_wins=False,
         descent="recursive",
+        filehandle=sys.stdout,
     ) -> None:
         self.gateway = gateway
         self.cache: Set[URIRef] = set()
@@ -268,6 +308,7 @@ class Handler:
         self._descent_level = 0
         self.annotation_handlers = self.load_handlers()
         self.info = self.load_server()
+        self.filehandle = filehandle
 
     def skip_descent(self):
         return self.descent != "recursive" and self._descent_level > 0
@@ -277,11 +318,10 @@ class Handler:
 
     def load_handlers(self) -> Handlers:
         annotation_handlers: Handlers = []
-        for ep in entrypoints.get_group_all("omero_rdf.annotation_handler"):
+        eps = entry_points()
+        for ep in eps.get("omero_rdf.annotation_handler", []):
             ah_loader = ep.load()
             annotation_handlers.append(ah_loader(self))
-        # We know there are some built in handlers
-        assert len(annotation_handlers) >= 1
         return annotation_handlers
 
     def load_server(self) -> Any:
@@ -347,6 +387,21 @@ class Handler:
             data = encoder.encode(o)
             return self.handle(data)
 
+    def annotations(self, obj, objid):
+        """
+        Loop through all annotations and handle them individually.
+        """
+        if isinstance(obj, IObject):
+            # Not a wrapper object
+            for annotation in obj.linkedAnnotationList():
+                annid = self(annotation)
+                self.contains(objid, annid)
+        else:
+            for annotation in obj.listAnnotations(None):
+                obj._loadAnnotationLinks()
+                annid = self(annotation)
+                self.contains(objid, annid)
+
     def handle(self, data: Data) -> URIRef:
         """
         Parses the data object into RDF triples.
@@ -354,7 +409,6 @@ class Handler:
         Returns the id for the data object itself
         """
         # TODO: Add quad representation as an option
-        output: Triple
 
         str_id = data.get("@id")
         if not str_id:
@@ -373,15 +427,24 @@ class Handler:
 
         return _id
 
+    def contains(self, parent, child):
+        """
+        Use emit to generate isPartOf and hasPart triples
+
+        TODO: add an option to only choose one of the two directions.
+        """
+        self.emit((child, DCTERMS.isPartOf, parent))
+        self.emit((parent, DCTERMS.hasPart, child))
+
     def emit(self, triple: Triple):
         if self.formatter.streaming:
-            print(self.formatter.serialize_triple(triple))
+            print(self.formatter.serialize_triple(triple), file=self.filehandle)
         else:
             self.formatter.add(triple)
 
     def close(self):
         if not self.formatter.streaming:
-            print(self.formatter.serialize_graph())
+            print(self.formatter.serialize_graph(), file=self.filehandle)
 
     def rdf(
         self,
@@ -527,6 +590,12 @@ class RdfControl(BaseControl):
             default=False,
             help="Remove leading and trailing whitespace from literals",
         )
+        parser.add_argument(
+            "--file",
+            type=str,
+            default=None,
+            help="Write RDF triples to the specified file",
+        )
         parser.set_defaults(func=self.action)
 
     @gateway_required
@@ -538,16 +607,18 @@ class RdfControl(BaseControl):
         else:
             args.format = format_mapping()[args.format]
 
-        handler = Handler(
-            self.gateway,
-            formatter=args.format,
-            use_ellide=args.ellide,
-            trim_whitespace=args.trim_whitespace,
-            first_handler_wins=args.first_handler_wins,
-            descent=args.descent,
-        )
-        self.descend(self.gateway, args.target, handler)
-        handler.close()
+        with open_with_default(args.file) as fh:
+            handler = Handler(
+                self.gateway,
+                formatter=args.format,
+                use_ellide=args.ellide,
+                trim_whitespace=args.trim_whitespace,
+                first_handler_wins=args.first_handler_wins,
+                descent=args.descent,
+                filehandle=fh,
+            )
+            self.descend(self.gateway, args.target, handler)
+            handler.close()
 
     # TODO: move to handler?
     def descend(
@@ -576,67 +647,58 @@ class RdfControl(BaseControl):
             scrid = handler(scr)
             for plate in scr.listChildren():
                 pltid = self.descend(gateway, plate._obj, handler)
-                handler.emit((pltid, DCTERMS.isPartOf, scrid))
-                handler.emit((scrid, DCTERMS.hasPart, pltid))
-            for annotation in scr.listAnnotations(None):
-                annid = handler(annotation)
-                handler.emit((annid, DCTERMS.isPartOf, scrid))
+                handler.contains(scrid, pltid)
+            handler.annotations(scr, scrid)
             return scrid
 
         elif isinstance(target, Plate):
             plt = self._lookup(gateway, "Plate", target.id)
             pltid = handler(plt)
-            for annotation in plt.listAnnotations(None):
-                annid = handler(annotation)
-                handler.emit((annid, DCTERMS.isPartOf, pltid))
+            handler.annotations(plt, pltid)
             for well in plt.listChildren():
                 wid = handler(well)  # No descend
-                handler.emit((wid, DCTERMS.isPartOf, pltid))
+                handler.contains(pltid, wid)
                 for idx in range(0, well.countWellSample()):
                     img = well.getImage(idx)
                     imgid = self.descend(gateway, img._obj, handler)
-                    handler.emit((imgid, DCTERMS.isPartOf, wid))
-                    handler.emit((wid, DCTERMS.hasPart, imgid))
+                    handler.contains(wid, imgid)
             return pltid
 
         elif isinstance(target, Project):
             prj = self._lookup(gateway, "Project", target.id)
             prjid = handler(prj)
-            for annotation in prj.listAnnotations(None):
-                annid = handler(annotation)
-                handler.emit((annid, DCTERMS.isPartOf, prjid))
+            handler.annotations(prj, prjid)
             for ds in prj.listChildren():
                 dsid = self.descend(gateway, ds._obj, handler)
-                handler.emit((dsid, DCTERMS.isPartOf, prjid))
-                handler.emit((prjid, DCTERMS.hasPart, dsid))
+                handler.contains(prjid, dsid)
             return prjid
 
         elif isinstance(target, Dataset):
             ds = self._lookup(gateway, "Dataset", target.id)
             dsid = handler(ds)
-            for annotation in ds.listAnnotations(None):
-                annid = handler(annotation)
-                handler.emit((annid, DCTERMS.isPartOf, dsid))
+            handler.annotations(ds, dsid)
             for img in ds.listChildren():
                 imgid = self.descend(gateway, img._obj, handler)
-                handler.emit((imgid, DCTERMS.isPartOf, dsid))
-                handler.emit((dsid, DCTERMS.hasPart, imgid))
+                handler.contains(dsid, imgid)
             return dsid
 
         elif isinstance(target, Image):
             img = self._lookup(gateway, "Image", target.id)
             imgid = handler(img)
-            pixid = handler(img.getPrimaryPixels())
-            handler.emit((pixid, DCTERMS.isPartOf, imgid))
-            handler.emit((imgid, DCTERMS.hasPart, pixid))
-            for annotation in img.listAnnotations(None):
-                img._loadAnnotationLinks()
-                annid = handler(annotation)
-                handler.emit((annid, DCTERMS.isPartOf, imgid))
-            for ch in self._get_channels(gateway, img):
-                handler(ch)
+            if img.getPrimaryPixels() is not None:
+                pixid = handler(img.getPrimaryPixels())
+                handler.contains(imgid, pixid)
+                for ch in self._get_channels(gateway, img):
+                    handler(ch)
+            handler.annotations(img, imgid)
             for roi in self._get_rois(gateway, img):
-                handler(roi)
+                roiid = handler(roi)
+                handler.annotations(roi, roiid)
+                handler.contains(pixid, roiid)
+                for shape in roi.iterateShapes():
+                    shapeid = handler(shape)
+                    handler.annotations(shape, shapeid)
+                    handler.contains(roiid, shapeid)
             return imgid
 
         else:
