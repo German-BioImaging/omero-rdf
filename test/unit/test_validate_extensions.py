@@ -1,5 +1,5 @@
 import logging
-from types import SimpleNamespace
+from argparse import Namespace
 
 from omero_rdf import RdfControl
 
@@ -15,7 +15,7 @@ class DummyCtx:
 def test_warns_for_nt_when_turtle(caplog):
     ctrl = RdfControl()
     ctrl.ctx = DummyCtx()
-    args = SimpleNamespace(file="out.nt", format="turtle", pretty=False, yes=True)
+    args = Namespace(file="out.nt", format="turtle", pretty=False, yes=True)
 
     with caplog.at_level(logging.WARNING):
         ctrl._validate_extensions(args)
@@ -26,7 +26,7 @@ def test_warns_for_nt_when_turtle(caplog):
 def test_warns_when_pretty_overrides_extension(caplog):
     ctrl = RdfControl()
     ctrl.ctx = DummyCtx()
-    args = SimpleNamespace(file="out.nt", format="ntriples", pretty=True, yes=True)
+    args = Namespace(file="out.nt", format="ntriples", pretty=True, yes=True)
 
     with caplog.at_level(logging.WARNING):
         ctrl._validate_extensions(args)
@@ -37,7 +37,7 @@ def test_warns_when_pretty_overrides_extension(caplog):
 def test_allows_matching_extension(caplog):
     ctrl = RdfControl()
     ctrl.ctx = DummyCtx()
-    args = SimpleNamespace(file="out.nt", format="ntriples", pretty=False, yes=True)
+    args = Namespace(file="out.nt", format="ntriples", pretty=False, yes=True)
 
     with caplog.at_level(logging.WARNING):
         ctrl._validate_extensions(args)
