@@ -31,7 +31,7 @@ def test_warns_when_pretty_overrides_extension(caplog):
     with caplog.at_level(logging.WARNING):
         ctrl._validate_extensions(args)
 
-    assert ".turtle' does not match format 'ntriples'" in caplog.text
+    assert "--pretty sets output format to Turtle" in caplog.text
 
 
 def test_allows_matching_extension(caplog):

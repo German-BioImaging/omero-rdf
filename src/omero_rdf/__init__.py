@@ -638,6 +638,7 @@ class RdfControl(BaseControl):
             if filename.endswith(".gz"):
                 filename = filename.replace(".gz", "")
             file_extension = filename.split(".")[-1]
+            original_extension = file_extension
 
             # Support hidden --pretty flag
             if args.pretty:
@@ -647,10 +648,15 @@ class RdfControl(BaseControl):
             expected_exts = extension_mapping().get(format_string, [])
 
             if expected_exts and file_extension not in expected_exts:
-                logging.warning(
-                    f".{file_extension}' does not match format '{format_string}'"
-                    f'(expected: {", ".join(f".{e}" for e in expected_exts)})',
-                )
+                if args.pretty:
+                    logging.warning(
+                        f"--pretty sets output format to Turtle. This may be conflicting with the '--format' or '--file. settings"
+                    )
+                else:
+                    logging.warning(
+                        f".{file_extension}' does not match format '{format_string}'"
+                        f'(expected: {", ".join(f".{e}" for e in expected_exts)})',
+                    )
 
             if not getattr(args, "yes", False):  # hidden --yes
                 self.ctx.out("This may cause incorrect output formatting.")
