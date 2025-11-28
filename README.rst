@@ -48,13 +48,22 @@ Using `uv` (recommended):
 
    ::
 
-       uv pip install -e ".[tests]"
+       uv pip install -e ".[tests,dev]"
 
 4. Run the test suite:
 
    ::
 
        pytest
+
+5. Lint and format:
+
+   ::
+
+       ruff check 
+       ruff format --check
+       ruff format
+ 
 
 Quick check against IDR
 -----------------------
