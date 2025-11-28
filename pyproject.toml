@@ -15,7 +15,7 @@ readme = "README.rst"
 dynamic = ["version"]
 description="A plugin for exporting RDF from OMERO"
 
-requires-python = ">3.8"
+requires-python = ">=3.10,<3.13"
 
 dependencies = [
     "omero-py>=5.8",
@@ -26,7 +26,6 @@ dependencies = [
     "rdflib-pyld-compat",
     "omero-marshal",
     "packaging",
-    'zeroc-ice @ https://github.com/ome/zeroc-ice-py-github-ci/releases/download/0.2.0/zeroc_ice-3.6.5-cp39-cp39-linux_x86_64.whl ; platform_system=="Linux" and python_version=="3.9"',
     'zeroc-ice @ https://github.com/ome/zeroc-ice-py-github-ci/releases/download/0.2.0/zeroc_ice-3.6.5-cp310-cp310-linux_x86_64.whl ; platform_system=="Linux" and python_version=="3.10"',
     'zeroc-ice @ https://github.com/glencoesoftware/zeroc-ice-py-linux-x86_64/releases/download/20240202/zeroc_ice-3.6.5-cp311-cp311-manylinux_2_28_x86_64.whl ; platform_system=="Linux" and python_version=="3.11"',
     'zeroc-ice @ https://github.com/glencoesoftware/zeroc-ice-py-linux-x86_64/releases/download/20240202/zeroc_ice-3.6.5-cp312-cp312-manylinux_2_28_x86_64.whl ; platform_system=="Linux" and python_version=="3.12"',
@@ -44,6 +43,9 @@ classifiers = [
     "Natural Language :: English",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 

@@ -14,7 +14,7 @@ Requirements
 ============
 
 * OMERO 5.6.0 or newer
-* Python 3.8 or newer
+* Python 3.10, 3.11, or 3.12 (only versions with ``zeroc-ice`` binary wheels are supported; newer versions will be added when wheels are available)
 
 
 Installing from PyPI
