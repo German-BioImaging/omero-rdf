@@ -64,6 +64,12 @@ Using `uv` (recommended):
        ruff format --check
        ruff format
  
+To run pre-commit hooks:
+
+:: 
+
+   uv tool install pre-commit
+   pre-commit run --all-files
 
 Quick check against IDR
 -----------------------
