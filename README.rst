@@ -28,6 +28,52 @@ Install the command-line tool using `pip <https://pip.pypa.io/en/stable/>`_:
 
     $ pip install -U omero-rdf
 
+
+Developer guidelines 
+====================
+
+Using `uv` (recommended):
+
+1. Fork/clone the repository (e.g. ``gh repo fork https://github.com/German-BioImaging/omero-rdf``).
+2. Create a virtualenv and activate it:
+
+   ::
+
+       uv venv .venv
+       source .venv/bin/activate
+
+   (or prefix commands with ``uv run`` instead of activating).
+
+3. Install in editable mode with test dependencies (pulls the correct platform-specific ``zeroc-ice`` wheel):
+
+   ::
+
+       uv pip install -e ".[tests]"
+
+4. Run the test suite:
+
+   ::
+
+       pytest
+
+Quick check against IDR
+-----------------------
+
+Assuming you have the `uv` environment active (`source .venv/bin/activate`), use
+the public IDR server to confirm the CLI works (public/public credentials):
+
+1. Log in once to create a session:
+
+   ::
+
+       omero login -s idr.openmicroscopy.org -u public -w public
+
+2. Export RDF for a project on IDR (2902) and inspect the first triples:
+
+   ::
+
+       omero rdf -F=turtle Project:2902 -S=flat | head  -n 10       
+
 Release process
 ---------------
 
