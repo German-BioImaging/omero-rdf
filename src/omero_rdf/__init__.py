@@ -596,7 +596,6 @@ class RdfControl(BaseControl):
 
     @gateway_required
     def action(self, args: Namespace) -> None:
-
         self._validate_extensions(args)
 
         # Support hidden --pretty flag
@@ -619,7 +618,6 @@ class RdfControl(BaseControl):
             handler.close()
 
     def _validate_extensions(self, args):
-
         extension_map = {
             "ntriples": ["nt"],
             "turtle": ["ttl"],
@@ -648,7 +646,7 @@ class RdfControl(BaseControl):
             if valid_exts and file_extension not in valid_exts:
                 logging.warning(
                     f".{file_extension}' does not match format '{format_string}'"
-                    f'(expected: {", ".join(f".{e}" for e in valid_exts)})',
+                    f"(expected: {', '.join(f'.{e}' for e in valid_exts)})",
                 )
 
             if not getattr(args, "yes", False):  # hidden --yes
