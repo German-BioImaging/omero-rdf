@@ -17,6 +17,21 @@ on:
     - cron: "0 0 * * 0"
 
 jobs:
+  unit_test:
+    name: Run unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+      - run: >
+          pip install https://github.com/glencoesoftware/
+          zeroc-ice-py-linux-x86_64/releases/download/20240202/
+          zeroc_ice-3.6.5-cp311-cp311-manylinux_2_28_x86_64.whl
+      - run: pip install .
+      - run: pytest test/unit
+
   lint:
     name: Run basic linting via pre-commit
     runs-on: ubuntu-latest
