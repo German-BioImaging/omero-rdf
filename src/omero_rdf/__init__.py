@@ -451,7 +451,6 @@ class Handler:
         _id: Subj,
         data: Data,
     ) -> Generator[Triple, None, None]:
-
         _type = self.get_type(data)
 
         # Temporary workaround while deciding how to pass annotations
@@ -473,14 +472,12 @@ class Handler:
             self.cache.add(_id)
 
         for k, v in sorted(data.items()):
-
             if k == "@type":
                 yield (_id, RDF.type, URIRef(v))
             elif k in ("@id", "omero:details", "Annotations"):
                 # Types that we want to omit for now
                 pass
             else:
-
                 if k.startswith("omero:"):
                     key = URIRef(f"{self.OMERO}{k[6:]}")
                 else:
@@ -525,7 +522,6 @@ class Handler:
         # Special handling for Annotations
         annotations = data.get("Annotations", [])
         for annotation in annotations:
-
             handled = False
             for ah in self.annotation_handlers:
                 handled = yield from ah(

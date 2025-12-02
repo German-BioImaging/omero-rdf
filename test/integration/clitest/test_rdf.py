@@ -48,7 +48,6 @@ class TestRdf(CLITest):
         assert out
 
     def test_rois(self, capfd):
-
         update = self.client.sf.getUpdateService()
 
         # Setup a test image with a roi
