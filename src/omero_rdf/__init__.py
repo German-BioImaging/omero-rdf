@@ -271,15 +271,6 @@ def format_mapping():
     }
 
 
-def extension_mapping():
-    return {
-        "ntriples": ["nt"],
-        "turtle": ["ttl"],
-        "jsonld": ["jsonld", "json"],
-        "ro-crate": ["jsonld", "json"],
-    }
-
-
 def format_list():
     return format_mapping().keys()
 
@@ -632,31 +623,37 @@ class RdfControl(BaseControl):
             handler.close()
 
     def _validate_extensions(self, args):
+
+        extension_map = {
+            "ntriples": ["nt"],
+            "turtle": ["ttl"],
+            "jsonld": ["jsonld", "json"],
+            "ro-crate": ["jsonld", "json"],
+        }
+
         if args.file and args.file != "-":
             filename = args.file.lower()
 
             if filename.endswith(".gz"):
                 filename = filename.replace(".gz", "")
             file_extension = filename.split(".")[-1]
-            original_extension = file_extension
-
-            # Support hidden --pretty flag
-            if args.pretty:
-                file_extension = "turtle"
 
             format_string = str(args.format)
-            expected_exts = extension_mapping().get(format_string, [])
+            valid_exts = extension_map.get(format_string, [])
 
-            if expected_exts and file_extension not in expected_exts:
-                if args.pretty:
+            if args.pretty:
+                if format_string != "turtle" or file_extension != "ttl":
                     logging.warning(
-                        f"--pretty sets output format to Turtle. This may be conflicting with the '--format' or '--file. settings"
+                        "--pretty sets output format to Turtle."
+                        " This may be conflicting with the "
+                        "'--format' or '--file. settings"
                     )
-                else:
-                    logging.warning(
-                        f".{file_extension}' does not match format '{format_string}'"
-                        f'(expected: {", ".join(f".{e}" for e in expected_exts)})',
-                    )
+
+            if valid_exts and file_extension not in valid_exts:
+                logging.warning(
+                    f".{file_extension}' does not match format '{format_string}'"
+                    f'(expected: {", ".join(f".{e}" for e in valid_exts)})',
+                )
 
             if not getattr(args, "yes", False):  # hidden --yes
                 self.ctx.out("This may cause incorrect output formatting.")
