@@ -38,19 +38,17 @@ jobs:
   lint:
     name: Run basic linting via pre-commit
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v4
-      # Install all interpreters required by pre-commit mypy hooks
-      - uses: actions/setup-python@v6
+
+      - name: Set up Python ${{ matrix.python-version}}
+        uses: actions/setup-python@v6
         with:
-          python-version: "3.10"
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
+
       - run: pip install pre-commit
       - run: pre-commit run --all-files
 

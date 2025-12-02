@@ -25,14 +25,7 @@ repos:
     rev: v1.18.2
     hooks:
       - id: mypy
-        name: mypy (Python 3.10)
-        language_version: python3.10
-      - id: mypy
-        name: mypy (Python 3.11)
-        language_version: python3.11
-      - id: mypy
-        name: mypy (Python 3.12)
-        language_version: python3.12
+        language_version: python3
 
   - repo: https://github.com/adrienverge/yamllint.git
     rev: v1.26.3
