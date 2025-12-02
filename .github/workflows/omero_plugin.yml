@@ -10,6 +10,7 @@
 # 2. Adjust the cron schedule as necessary
 
 name: OMERO
+
 on:
   push:
   pull_request:
@@ -18,18 +19,20 @@ on:
 
 jobs:
   unit_test:
-    name: Run unit tests
+    name: Run unit tests (py${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v4
+
+      - name: Set up Python ${{ matrix.python-version}}
+        uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
-      # yamllint disable rule:line-length
-      - run: pip install https://github.com/glencoesoftware/zeroc-ice-py-linux-x86_64/releases/download/20240202/zeroc_ice-3.6.5-cp311-cp311-manylinux_2_28_x86_64.whl
-      # yamllint enable rule:line-length
-      - run: pip install pytest
-      - run: pip install .
+          python-version: ${{ matrix.python-version }}
+
+      - run: pip install ".[tests]"
       - run: pytest test/unit
 
   lint:
@@ -38,10 +41,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v4
+      # Install all interpreters required by pre-commit mypy hooks
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.10"
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
       - run: pip install pre-commit
       - run: pre-commit run --all-files
+
   test:
     name: Run integration tests against OMERO
     runs-on: ubuntu-latest
