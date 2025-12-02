@@ -319,7 +319,13 @@ class Handler:
     def load_handlers(self) -> Handlers:
         annotation_handlers: Handlers = []
         eps = entry_points()
-        for ep in eps.get("omero_rdf.annotation_handler", []):
+
+        # Extensions to OMERO rdf can provide custom annotation handling.
+        # They can be accessed through entry points.
+        # See https://github.com/German-BioImaging/omero-rdf-wikidata/
+
+        # Python 3.10 deprecated eps.get(), changing to eps.select()
+        for ep in eps.select(group="omero_rdf.annotation_handler"):
             ah_loader = ep.load()
             annotation_handlers.append(ah_loader(self))
         return annotation_handlers
