@@ -25,8 +25,9 @@ from typing import Any, Generator, Optional, Set
 
 from importlib.metadata import entry_points
 from omero.gateway import BlitzGateway, BlitzObjectWrapper
-from omero.model import IObject
 from omero_marshal import get_encoder
+from omero.model import Dataset, Image, IObject, Plate, Project, Screen
+from omero.sys import ParametersI
 
 from rdflib import BNode, Literal, URIRef
 
@@ -35,6 +36,17 @@ from rdflib.namespace import DCTERMS, RDF
 
 from omero_rdf.utils import Handlers, Data, Triple, Subj
 from omero_rdf.formats import Format
+
+
+class HandlerError(Exception):
+    """
+    Raised when Handler encounters an unrecoverable condition.
+    Carries an exit-status-like code for the caller to interpret.
+    """
+
+    def __init__(self, status: int, message: str) -> None:
+        super().__init__(message)
+        self.status = status
 
 
 class Handler:
@@ -311,3 +323,107 @@ class Handler:
         val = self.get_identity(v_type, v["@id"])
         yield (_id, key, val)
         yield from self.rdf(_id, v)
+
+    def _get_rois(self, gateway, img):
+        params = ParametersI()
+        params.addId(img.id)
+        query = """select r from Roi r
+                left outer join fetch r.annotationLinks as ral
+                left outer join fetch ral.child as rann
+                left outer join fetch r.shapes as s
+                left outer join fetch s.annotationLinks as sal
+                left outer join fetch sal.child as sann
+                     where r.image.id = :id"""
+        return gateway.getQueryService().findAllByQuery(
+            query, params, {"omero.group": str(img.details.group.id.val)}
+        )
+
+    def _lookup(
+        self, gateway: BlitzGateway, _type: str, oid: int
+    ) -> BlitzObjectWrapper:
+        # TODO: move _lookup to a _configure type
+        gateway.SERVICE_OPTS.setOmeroGroup("-1")
+        obj = gateway.getObject(_type, oid)
+        if not obj:
+            raise HandlerError(110, f"No such {_type}: {oid}")
+        return obj
+
+    def descend(
+        self,
+        gateway: BlitzGateway,
+        target: IObject,
+    ) -> URIRef:
+        """
+        Copied from omero-cli-render. Should be moved upstream
+        """
+
+        if isinstance(target, list):
+            return [self.descend(gateway, t) for t in target]
+
+        # "descent" doesn't apply to a list
+        if self.skip_descent():
+            objid = self(target)
+            logging.debug("skip descent: %s", objid)
+            return objid
+        else:
+            self.descending()
+
+        if isinstance(target, Screen):
+            scr = self._lookup(gateway, "Screen", target.id)
+            scrid = self(scr)
+            for plate in scr.listChildren():
+                pltid = self.descend(gateway, plate._obj)
+                self.contains(scrid, pltid)
+            self.annotations(scr, scrid)
+            return scrid
+
+        elif isinstance(target, Plate):
+            plt = self._lookup(gateway, "Plate", target.id)
+            pltid = self(plt)
+            self.annotations(plt, pltid)
+            for well in plt.listChildren():
+                wid = self(well)  # No descend
+                self.contains(pltid, wid)
+                for idx in range(0, well.countWellSample()):
+                    img = well.getImage(idx)
+                    imgid = self.descend(gateway, img._obj)
+                    self.contains(wid, imgid)
+            return pltid
+
+        elif isinstance(target, Project):
+            prj = self._lookup(gateway, "Project", target.id)
+            prjid = self(prj)
+            self.annotations(prj, prjid)
+            for ds in prj.listChildren():
+                dsid = self.descend(gateway, ds._obj)
+                self.contains(prjid, dsid)
+            return prjid
+
+        elif isinstance(target, Dataset):
+            ds = self._lookup(gateway, "Dataset", target.id)
+            dsid = self(ds)
+            self.annotations(ds, dsid)
+            for img in ds.listChildren():
+                imgid = self.descend(gateway, img._obj)
+                self.contains(dsid, imgid)
+            return dsid
+
+        elif isinstance(target, Image):
+            img = self._lookup(gateway, "Image", target.id)
+            imgid = self(img)
+            if img.getPrimaryPixels() is not None:
+                pixid = self(img.getPrimaryPixels())
+                self.contains(imgid, pixid)
+            self.annotations(img, imgid)
+            for roi in self._get_rois(gateway, img):
+                roiid = self(roi)
+                self.annotations(roi, roiid)
+                self.contains(pixid, roiid)
+                for shape in roi.iterateShapes():
+                    shapeid = self(shape)
+                    self.annotations(shape, shapeid)
+                    self.contains(roiid, shapeid)
+            return imgid
+
+        else:
+            raise HandlerError(111, "unknown target: %s" % target.__class__.__name__)

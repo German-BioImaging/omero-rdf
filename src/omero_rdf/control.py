@@ -19,15 +19,10 @@
 import logging
 from argparse import Namespace
 from omero.cli import BaseControl, Parser, ProxyStringType
-from omero.gateway import BlitzGateway, BlitzObjectWrapper
-from omero.model import Dataset, Image, IObject, Plate, Project, Screen
-from omero.sys import ParametersI
-
-from rdflib import URIRef
 
 from omero_rdf.formats import format_list, format_mapping, TurtleFormat
 from omero_rdf.utils import gateway_required, open_with_default
-from omero_rdf.handler import Handler
+from omero_rdf.handler import Handler, HandlerError
 
 
 class RdfControl(BaseControl):
@@ -99,8 +94,11 @@ class RdfControl(BaseControl):
                 descent=args.descent,
                 filehandle=fh,
             )
-            self.descend(self.gateway, args.target, handler)
-            handler.close()
+            try:
+                handler.descend(self.gateway, args.target)
+                handler.close()
+            except HandlerError as err:
+                self.ctx.die(err.status, str(err))
 
     def _validate_extensions(self, args):
         extension_map = {
@@ -140,109 +138,3 @@ class RdfControl(BaseControl):
                 if reply not in ("y", "yes"):
                     self.ctx.err("Aborted by user.")
                     return
-
-    # TODO: move to handler?
-    def descend(
-        self,
-        gateway: BlitzGateway,
-        target: IObject,
-        handler: Handler,
-    ) -> URIRef:
-        """
-        Copied from omero-cli-render. Should be moved upstream
-        """
-
-        if isinstance(target, list):
-            return [self.descend(gateway, t, handler) for t in target]
-
-        # "descent" doesn't apply to a list
-        if handler.skip_descent():
-            objid = handler(target)
-            logging.debug("skip descent: %s", objid)
-            return objid
-        else:
-            handler.descending()
-
-        if isinstance(target, Screen):
-            scr = self._lookup(gateway, "Screen", target.id)
-            scrid = handler(scr)
-            for plate in scr.listChildren():
-                pltid = self.descend(gateway, plate._obj, handler)
-                handler.contains(scrid, pltid)
-            handler.annotations(scr, scrid)
-            return scrid
-
-        elif isinstance(target, Plate):
-            plt = self._lookup(gateway, "Plate", target.id)
-            pltid = handler(plt)
-            handler.annotations(plt, pltid)
-            for well in plt.listChildren():
-                wid = handler(well)  # No descend
-                handler.contains(pltid, wid)
-                for idx in range(0, well.countWellSample()):
-                    img = well.getImage(idx)
-                    imgid = self.descend(gateway, img._obj, handler)
-                    handler.contains(wid, imgid)
-            return pltid
-
-        elif isinstance(target, Project):
-            prj = self._lookup(gateway, "Project", target.id)
-            prjid = handler(prj)
-            handler.annotations(prj, prjid)
-            for ds in prj.listChildren():
-                dsid = self.descend(gateway, ds._obj, handler)
-                handler.contains(prjid, dsid)
-            return prjid
-
-        elif isinstance(target, Dataset):
-            ds = self._lookup(gateway, "Dataset", target.id)
-            dsid = handler(ds)
-            handler.annotations(ds, dsid)
-            for img in ds.listChildren():
-                imgid = self.descend(gateway, img._obj, handler)
-                handler.contains(dsid, imgid)
-            return dsid
-
-        elif isinstance(target, Image):
-            img = self._lookup(gateway, "Image", target.id)
-            imgid = handler(img)
-            if img.getPrimaryPixels() is not None:
-                pixid = handler(img.getPrimaryPixels())
-                handler.contains(imgid, pixid)
-            handler.annotations(img, imgid)
-            for roi in self._get_rois(gateway, img):
-                roiid = handler(roi)
-                handler.annotations(roi, roiid)
-                handler.contains(pixid, roiid)
-                for shape in roi.iterateShapes():
-                    shapeid = handler(shape)
-                    handler.annotations(shape, shapeid)
-                    handler.contains(roiid, shapeid)
-            return imgid
-
-        else:
-            self.ctx.die(111, "unknown target: %s" % target.__class__.__name__)
-
-    def _get_rois(self, gateway, img):
-        params = ParametersI()
-        params.addId(img.id)
-        query = """select r from Roi r
-                left outer join fetch r.annotationLinks as ral
-                left outer join fetch ral.child as rann
-                left outer join fetch r.shapes as s
-                left outer join fetch s.annotationLinks as sal
-                left outer join fetch sal.child as sann
-                     where r.image.id = :id"""
-        return gateway.getQueryService().findAllByQuery(
-            query, params, {"omero.group": str(img.details.group.id.val)}
-        )
-
-    def _lookup(
-        self, gateway: BlitzGateway, _type: str, oid: int
-    ) -> BlitzObjectWrapper:
-        # TODO: move _lookup to a _configure type
-        gateway.SERVICE_OPTS.setOmeroGroup("-1")
-        obj = gateway.getObject(_type, oid)
-        if not obj:
-            self.ctx.die(110, f"No such {_type}: {oid}")
-        return obj
