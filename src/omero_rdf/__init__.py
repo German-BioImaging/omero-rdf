@@ -39,6 +39,9 @@ from rdflib import BNode, Graph, Literal, URIRef
 from rdflib.namespace import DCTERMS, RDF
 from rdflib_pyld_compat import pyld_jsonld_from_rdflib_graph
 
+
+from omero_rdf.library import RdfLibrary
+
 HELP = """A plugin for exporting RDF from OMERO
 
 omero-rdf creates a stream of RDF triples from the starting object that
