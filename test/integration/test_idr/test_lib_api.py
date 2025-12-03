@@ -1,7 +1,6 @@
 from omero.gateway import BlitzGateway
 
 from omero_rdf import RdfLibrary
-from rdflib import Graph
 
 with BlitzGateway(
     username="public",
@@ -11,9 +10,10 @@ with BlitzGateway(
     secure=True,
 ) as conn:
     lib = RdfLibrary(conn)
-    args = {"target": "Image:123"}
+    args = {"target": "Image:14000745"}
 
-    g = lib.action(**args, output="rdflib")
+    g = lib.action(output="rdflib", **args)
 
+    # Check if first triple is <https://idr.openmicroscopy.org/Image/14000745> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type>       <http://www.openmicroscopy.org/Schemas/OME/2016-06#Image>
     for triple in sorted(g):
         print(triple)

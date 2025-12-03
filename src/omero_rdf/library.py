@@ -18,15 +18,19 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
+from rdflib import Graph
+
 
 class RdfLibrary:
     def __init__(self, connection):
         self.connection = connection
 
-    def export(self, targets, format="turtle", **kwargs):
+    def action(self, output="rdflib", **kwargs):
         """
         Placeholder export method.
 
         Returns an empty string for now.
         """
-        return ""
+
+        g = Graph()
+        return g
