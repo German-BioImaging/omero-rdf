@@ -10,13 +10,48 @@
 # 2. Adjust the cron schedule as necessary
 
 name: OMERO
+
 on:
   push:
   pull_request:
   schedule:
-    - cron: '0 0 * * 0'
+    - cron: "0 0 * * 0"
 
 jobs:
+  unit_test:
+    name: Run unit tests (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version}}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - run: pip install ".[tests]"
+      - run: pytest test/unit
+
+  lint:
+    name: Run basic linting via pre-commit
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version}}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - run: pip install pre-commit
+      - run: pre-commit run --all-files
+
   test:
     name: Run integration tests against OMERO
     runs-on: ubuntu-latest

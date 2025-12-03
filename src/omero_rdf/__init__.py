@@ -319,7 +319,13 @@ class Handler:
     def load_handlers(self) -> Handlers:
         annotation_handlers: Handlers = []
         eps = entry_points()
-        for ep in eps.get("omero_rdf.annotation_handler", []):
+
+        # Extensions to OMERO rdf can provide custom annotation handling.
+        # They can be accessed through entry points.
+        # See https://github.com/German-BioImaging/omero-rdf-wikidata/
+
+        # Python 3.10 deprecated eps.get(), changing to eps.select()
+        for ep in eps.select(group="omero_rdf.annotation_handler"):
             ah_loader = ep.load()
             annotation_handlers.append(ah_loader(self))
         return annotation_handlers
@@ -596,6 +602,8 @@ class RdfControl(BaseControl):
 
     @gateway_required
     def action(self, args: Namespace) -> None:
+        self._validate_extensions(args)
+
         # Support hidden --pretty flag
         if args.pretty:
             args.format = TurtleFormat()
@@ -614,6 +622,45 @@ class RdfControl(BaseControl):
             )
             self.descend(self.gateway, args.target, handler)
             handler.close()
+
+    def _validate_extensions(self, args):
+        extension_map = {
+            "ntriples": ["nt"],
+            "turtle": ["ttl"],
+            "jsonld": ["jsonld", "json"],
+            "ro-crate": ["jsonld", "json"],
+        }
+
+        if args.file and args.file != "-":
+            filename = args.file.lower()
+
+            if filename.endswith(".gz"):
+                filename = filename.replace(".gz", "")
+            file_extension = filename.split(".")[-1]
+
+            format_string = str(args.format)
+            valid_exts = extension_map.get(format_string, [])
+
+            if args.pretty:
+                if format_string != "turtle" or file_extension != "ttl":
+                    logging.warning(
+                        "--pretty sets output format to Turtle."
+                        " This may be conflicting with the "
+                        "'--format' or '--file. settings"
+                    )
+
+            if valid_exts and file_extension not in valid_exts:
+                logging.warning(
+                    f".{file_extension}' does not match format '{format_string}'"
+                    f"(expected: {', '.join(f'.{e}' for e in valid_exts)})",
+                )
+
+            if not getattr(args, "yes", False):  # hidden --yes
+                self.ctx.out("This may cause incorrect output formatting.")
+                reply = input("Continue anyway? [y/N]: ").strip().lower()
+                if reply not in ("y", "yes"):
+                    self.ctx.err("Aborted by user.")
+                    return
 
     # TODO: move to handler?
     def descend(
