@@ -224,7 +224,8 @@ class Handler:
 
     def close(self):
         if not self.formatter.streaming:
-            print(self.formatter.serialize_graph(), file=self.filehandle)
+            serialized_graph = self.formatter.serialize_graph()
+            print(serialized_graph, file=self.filehandle)
 
     def rdf(
         self,

@@ -18,19 +18,34 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-from rdflib import Graph
+from omero_rdf.handler import Handler, HandlerError
+from omero_rdf.formats import TurtleFormat
 
 
 class RdfLibrary:
     def __init__(self, connection):
         self.connection = connection
 
-    def action(self, output="rdflib", **kwargs):
+    def export_graph(self, **kwargs):
         """
-        Placeholder export method.
-
-        Returns an empty string for now.
+        Returns the populated rdflib.Graph for a target OMERO object.
         """
+        target = kwargs.get("target")
+        if isinstance(target, str) and ":" in target:
+            target_type, target_id = target.split(":", 1)
+            obj = self.connection.getObject(target_type, int(target_id))
+            if obj is None:
+                raise HandlerError(110, f"No such {target_type}: {target_id}")
+            target = obj._obj if hasattr(obj, "_obj") else obj
 
-        g = Graph()
-        return g
+        turtle_format = TurtleFormat()
+        handler = Handler(
+            gateway=self.connection,
+            formatter=turtle_format,
+            trim_whitespace=False,
+            use_ellide=False,
+            first_handler_wins=False,
+            descent="recursive",
+        )
+        handler.descend(self.connection, target)
+        return turtle_format.graph
