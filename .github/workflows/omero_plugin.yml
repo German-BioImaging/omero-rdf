@@ -35,6 +35,23 @@ jobs:
       - run: pip install ".[tests]"
       - run: pytest test/unit
 
+  idr_integration:
+    name: Run idr integration test (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version}}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - run: pip install ".[tests]"
+      - run: pytest test/integration/test_idr
+
   lint:
     name: Run basic linting via pre-commit
     runs-on: ubuntu-latest
