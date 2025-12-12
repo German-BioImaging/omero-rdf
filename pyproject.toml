@@ -60,6 +60,7 @@ authors = [
 [project.optional-dependencies]
 tests = [
     "pytest",
+    "pytest-cov",
     "restview",
     "mox3",
 ]
