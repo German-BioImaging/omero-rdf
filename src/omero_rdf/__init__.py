@@ -18,7 +18,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-from omero_rdf.library import RdfLibrary as RdfLibrary
+from omero_rdf.library import Triplyfier as Triplyfier
 from omero_rdf.control import RdfControl as RdfControl
 
 HELP = """A plugin for exporting RDF from OMERO

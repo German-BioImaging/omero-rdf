@@ -1,7 +1,7 @@
 from omero.gateway import BlitzGateway
 from rdflib import Literal, URIRef
 
-from omero_rdf import RdfLibrary
+from omero_rdf import Triplyfier
 
 
 def test_rdf_library_returns_expected_triples():
@@ -12,7 +12,7 @@ def test_rdf_library_returns_expected_triples():
         port="4064",
         secure=True,
     ) as conn:
-        lib = RdfLibrary(conn)
+        lib = Triplyfier(conn)
         g = lib.export_graph(output="rdflib", target="Image:14000745")
 
     sample_expected_triples = [

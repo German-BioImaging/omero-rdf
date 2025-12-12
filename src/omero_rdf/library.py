@@ -22,7 +22,7 @@ from omero_rdf.handler import Handler, HandlerError
 from omero_rdf.formats import TurtleFormat
 
 
-class RdfLibrary:
+class Triplyfier:
     def __init__(self, connection):
         self.connection = connection
 
