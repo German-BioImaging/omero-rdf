@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 #
-# Copyright (c) 2022 German BioImaging
+# Copyright (c) 2022 - 2025 German BioImaging
 # All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify
