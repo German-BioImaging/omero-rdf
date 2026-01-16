@@ -15,6 +15,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
+"""CLI control for the `omero rdf` command."""
 
 import logging
 from argparse import Namespace
@@ -26,7 +27,14 @@ from omero_rdf.handler import Handler, HandlerError
 
 
 class RdfControl(BaseControl):
+    """CLI control for RDF export as an omero CLI plugin.
+
+    This class is created when running e.g. `omero rdf Image:123` in the command line.
+
+    """
+
     def _configure(self, parser: Parser) -> None:
+        """Register CLI arguments for RDF export."""
         parser.add_login_arguments()
         rdf_type = ProxyStringType("Image")
         rdf_help = "Object to be exported to RDF"
@@ -76,6 +84,10 @@ class RdfControl(BaseControl):
 
     @gateway_required
     def action(self, args: Namespace) -> None:
+        """Run RDF export for the requested target(s).
+
+        Writes to stdout or the configured file path.
+        """
         self._validate_extensions(args)
 
         # Support hidden --pretty flag
@@ -101,6 +113,7 @@ class RdfControl(BaseControl):
                 self.ctx.die(err.status, str(err))
 
     def _validate_extensions(self, args):
+        """Warn or prompt when output file extensions do not match the format."""
         extension_map = {
             "ntriples": ["nt"],
             "turtle": ["ttl"],

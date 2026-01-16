@@ -18,6 +18,11 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
+"""Traversal and RDF triple generation for OMERO objects.
+
+Annotation handler plugins can be registered via the
+"omero_rdf.annotation_handler" entry-point group.
+"""
 
 import sys
 import logging
@@ -91,6 +96,7 @@ class Handler:
         self._descent_level += 1
 
     def load_handlers(self) -> Handlers:
+        """Load annotation handlers from entry points."""
         annotation_handlers: Handlers = []
         eps = entry_points()
 
@@ -105,11 +111,13 @@ class Handler:
         return annotation_handlers
 
     def load_server(self) -> Any:
+        """Detect server connection info used for URI construction."""
         # Attempt to auto-detect server
         comm = self.gateway.c.getCommunicator()
         return self.gateway.c.getRouter(comm).ice_getEndpoints()[0].getInfo()
 
     def get_identity(self, _type: str, _id: Any) -> URIRef:
+        """Return the subject URI for a given OMERO type and id."""
         if _type.endswith("I") and _type != ("ROI"):
             _type = _type[0:-1]
         return URIRef(f"https://{self.info.host}/{_type}/{_id}")
@@ -159,6 +167,7 @@ class Handler:
         return c
 
     def __call__(self, o: BlitzObjectWrapper) -> URIRef:
+        """Encode an OMERO object and emit RDF, returning its subject URI."""
         c = self.get_class(o)
         encoder = get_encoder(c)
         if encoder is None:
@@ -232,6 +241,7 @@ class Handler:
         _id: Subj,
         data: Data,
     ) -> Generator[Triple, None, None]:
+        """Yield RDF triples for an encoded object, including annotations."""
         _type = self.get_type(data)
 
         # Temporary workaround while deciding how to pass annotations

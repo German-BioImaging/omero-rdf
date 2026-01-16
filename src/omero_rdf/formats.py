@@ -18,6 +18,15 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
+"""RDF serialization formats used by omero-rdf.
+
+References:
+- N-Triples: https://www.w3.org/TR/n-triples/
+- Turtle: https://www.w3.org/TR/turtle/
+- JSON-LD: https://www.w3.org/TR/json-ld11/
+- RO-Crate: https://www.researchobject.org/ro-crate/
+"""
+
 from pyld import jsonld
 from rdflib import Graph
 from rdflib_pyld_compat import pyld_jsonld_from_rdflib_graph

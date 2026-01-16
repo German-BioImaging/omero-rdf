@@ -18,11 +18,15 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
+"""Programmatic API for RDF export."""
+
 from omero_rdf.handler import Handler, HandlerError
 from omero_rdf.formats import TurtleFormat
 
 
 class Triplyfier:
+    """Export RDF for OMERO objects using an existing gateway connection."""
+
     def __init__(self, connection):
         self.connection = connection
 
