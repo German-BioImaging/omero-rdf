@@ -1,10 +1,20 @@
+import logging
+
 from omero.gateway import BlitzGateway
 from rdflib import Literal, URIRef
 
 from omero_rdf import Triplyfier
 
+# Basic logging to terminal
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+
 
 def test_rdf_library_returns_expected_triples():
+    logger.info("Preparing to connect to IDR server")
+
     with BlitzGateway(
         username="public",
         passwd="public",
@@ -12,8 +22,12 @@ def test_rdf_library_returns_expected_triples():
         port="4064",
         secure=True,
     ) as conn:
+        logger.info("Connected to IDR, creating Triplyfier")
         lib = Triplyfier(conn)
-        g = lib.export_graph(output="rdflib", target="Image:14000745")
+        target = "Image:14000745"
+        logger.info("Exporting graph for target: %s", target)
+        g = lib.export_graph(output="rdflib", target=target)
+        logger.info("Exported graph contains %d triples", len(g))
 
     sample_expected_triples = [
         (
@@ -37,4 +51,6 @@ def test_rdf_library_returns_expected_triples():
     ]
 
     for triple in sample_expected_triples:
+        if triple not in g:
+            logger.error("Missing triple: %s", triple)
         assert triple in g, f"Missing triple: {triple}"

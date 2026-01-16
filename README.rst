@@ -54,7 +54,8 @@ Using `uv` (recommended):
 
    ::
 
-       pytest
+       pytest test/unit 
+       pytest test/integration/test_idr
 
 5. Lint and format:
 
