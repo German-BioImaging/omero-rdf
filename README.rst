@@ -54,7 +54,8 @@ Using `uv` (recommended):
 
    ::
 
-       pytest
+       pytest test/unit 
+       pytest test/integration/test_idr
 
 5. Lint and format:
 
@@ -113,4 +114,4 @@ licensed under the terms of the GNU General Public License (GPL) v2 or later.
 Copyright
 ---------
 
-2022-2024, German BioImaging
+2022-2026, German BioImaging

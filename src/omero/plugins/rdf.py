@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 #
-# Copyright (c) 2022 German BioImaging
+# Copyright (c) 2022 - 2026 German BioImaging
 # All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify
@@ -18,6 +18,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
+"""OMERO CLI plugin entry point for the `rdf` command."""
 
 import sys
 
